@@ -93,8 +93,11 @@ def parse_numeric_value(s: str) -> Optional[float]:
 
 
 def clean_unit(u: str) -> str:
-    """Normalizes OCR unit errors: 'umo1/L' -> 'µmol/L', '109/L' -> '10^9/L'."""
+    """Normalizes OCR unit errors: 'umo1/L' -> 'µmol/L', '109/L' -> '10^9/L', filters machine models."""
     s = str(u or "").strip(" .,;:")
+    # Strip machine analyzer models that leaked into unit column (e.g. 'Mission U120', 'BS200E')
+    if re.search(r"(?i)\b(mission|bs-?200|cobas|architect|sysmex|mindray|mayxn)\b", s):
+        return ""
     s = s.replace("mo1", "mol").replace("pumol", "µmol").replace("umol", "µmol")
     s = re.sub(r"(?<![\d^.])(10)(3|6|9|12)(?=\s*/)", r"\1^\2", s)
     s = re.sub(r"/1$", "/L", s)
@@ -163,6 +166,14 @@ INTERNAL_REFERENCE_KB = [
     {"code": "ALT", "name": "ALT (GPT)", "aliases": ["alt", "gpt", "sgpt"], "unit": "U/L", "range": (None, 41)},
     {"code": "GGT", "name": "GGT", "aliases": ["ggt"], "unit": "U/L", "range": {"nam": (11, 50), "nu": (7, 32)}},
     {"code": "BILI_TP", "name": "Bilirubin TP", "aliases": ["bilirubintp", "bilirubintoanphan"], "unit": "µmol/L", "range": (None, 17)},
+    {"code": "KET", "name": "Ketone (KET)", "aliases": ["ketone", "ket", "ketoneket"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "NIT", "name": "Nitrit (NIT)", "aliases": ["nitrit", "nit", "nitritnit", "nitrite"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "BIL_U", "name": "Bilirubin (BIL)", "aliases": ["bilirubin", "bil", "bilirubinbil"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "PRO_U", "name": "Protein niệu (PRO)", "aliases": ["protein", "pro", "proteinpro"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "LEU_U", "name": "Bạch cầu niệu (LEU)", "aliases": ["bachcau", "leu", "bachcauleu", "leukocytes"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "ERY_U", "name": "Hồng cầu niệu (ERY)", "aliases": ["hongcau", "ery", "haneclu", "hanecluery", "erythrocytes"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "URO", "name": "Urobilinogen (URO)", "aliases": ["urobilinogen", "uro", "urobilinogenuro"], "unit": "mg/dL", "range": (0.2, 1.0)},
+    {"code": "PH_U", "name": "pH nước tiểu", "aliases": ["ph", "phnuoctieu"], "unit": "", "range": (4.8, 7.5)},
 ]
 
 
@@ -226,7 +237,10 @@ class LabNormalizer:
             # Need fallback to internal KB if available
             if kb_entry:
                 ranges = kb_entry["range"]
-                if isinstance(ranges, tuple):
+                if isinstance(ranges, str):
+                    ref_used_str = ranges
+                    ref_source = "internal_kb"
+                elif isinstance(ranges, (tuple, list)):
                     ref_low, ref_high = ranges
                     ref_source = "internal_kb"
                     ref_used_str = f"{ref_low or ''} - {ref_high or ''}".strip(" -")
@@ -263,21 +277,34 @@ class LabNormalizer:
         # 3. Classify flag
         calculated_flag = cls.classify_value(val_num, ref_low, ref_high)
 
-        # 4. Handle initial flag from prompt or OCR marks
-        raw_flag = str(draft_item.get("flag", "unknown")).lower()
-        if calculated_flag != LabFlag.UNKNOWN:
+        # 4. Handle qualitative test results (e.g. urine strips: neg -> NORMAL, pos -> HIGH)
+        raw_val_clean = str(raw_val or "").strip().lower()
+        is_qualitative_neg = raw_val_clean in ("neg", "negative", "âm tính", "am tinh", "norm", "normal", "bình thường", "binh thuong")
+        is_qualitative_pos = raw_val_clean in ("pos", "positive", "dương tính", "duong tinh", "+", "++", "+++", "++++")
+
+        if is_qualitative_neg:
+            final_flag = LabFlag.NORMAL
+            if not ref_used_str:
+                ref_used_str = "Âm tính (-)"
+        elif is_qualitative_pos:
+            final_flag = LabFlag.HIGH
+            if not ref_used_str:
+                ref_used_str = "Âm tính (-)"
+        elif calculated_flag != LabFlag.UNKNOWN:
             final_flag = calculated_flag
-        elif raw_flag in ("high", "low", "normal"):
-            final_flag = LabFlag(raw_flag)
         else:
-            final_flag = LabFlag.UNKNOWN
+            raw_flag = str(draft_item.get("flag", "unknown")).lower()
+            if raw_flag in ("high", "low", "normal"):
+                final_flag = LabFlag(raw_flag)
+            else:
+                final_flag = LabFlag.UNKNOWN
 
         # 5. Quality gate
         quality = QualityStatus.ACCEPTED
-        if val_num is None:
+        if val_num is None and not (is_qualitative_neg or is_qualitative_pos):
             quality = QualityStatus.NEEDS_REVIEW
             review_reasons.append("unparseable_value_num")
-        if ref_low is None and ref_high is None:
+        if ref_low is None and ref_high is None and not (is_qualitative_neg or is_qualitative_pos):
             quality = QualityStatus.NEEDS_REVIEW
         if final_flag == LabFlag.UNKNOWN:
             quality = QualityStatus.NEEDS_REVIEW

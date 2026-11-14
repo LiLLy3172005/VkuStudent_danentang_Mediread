@@ -285,11 +285,54 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-base font-medium">
-                {doc.lab_results.map((item, idx) => {
-                  const flagUpper = String(item.flag || 'unknown').toUpperCase();
-                  const isHigh = flagUpper === 'HIGH' || flagUpper === 'H';
+                {doc.lab_results.map((item: any, idx) => {
+                  // 1. Resolve Value (Supports float numbers and qualitative text like 'neg')
+                  const rawVal = item.value_text || item.value_raw;
+                  let displayVal = '-';
+                  let isQualitativeNeg = false;
+                  let isQualitativePos = false;
+
+                  if (item.value_num !== null && item.value_num !== undefined) {
+                    displayVal = String(item.value_num);
+                  } else if (rawVal) {
+                    const vt = String(rawVal).trim().toLowerCase();
+                    if (vt === 'neg' || vt === 'negative' || vt === 'âm tính') {
+                      displayVal = 'Âm tính (neg)';
+                      isQualitativeNeg = true;
+                    } else if (vt === 'pos' || vt === 'positive' || vt === 'dương tính') {
+                      displayVal = 'Dương tính (pos)';
+                      isQualitativePos = true;
+                    } else if (vt === 'norm' || vt === 'normal' || vt === 'bình thường') {
+                      displayVal = 'Bình thường (norm)';
+                      isQualitativeNeg = true;
+                    } else {
+                      displayVal = String(rawVal);
+                    }
+                  }
+
+                  // 2. Resolve Unit (Strip machine analyzer names)
+                  let displayUnit = item.unit || '-';
+                  if (/mission|bs200|bs-200|analyzer|mayxn/i.test(displayUnit)) {
+                    displayUnit = '-';
+                  }
+
+                  // 3. Resolve Reference Range
+                  let refRange = item.ref_text || item.reference_range_used || item.reference_range_raw;
+                  if (!refRange || refRange === 'Không in') {
+                    if (isQualitativeNeg || isQualitativePos) {
+                      refRange = 'Âm tính (-)';
+                    } else if (item.ref_low !== null && item.ref_high !== null && item.ref_low !== undefined && item.ref_high !== undefined) {
+                      refRange = `${item.ref_low} - ${item.ref_high}`;
+                    } else {
+                      refRange = 'Theo chỉ định BS';
+                    }
+                  }
+
+                  // 4. Resolve Flag
+                  const flagUpper = String(item.flag || '').toUpperCase();
+                  const isHigh = isQualitativePos || flagUpper === 'HIGH' || flagUpper === 'H';
                   const isLow = flagUpper === 'LOW' || flagUpper === 'L';
-                  const isNormal = flagUpper === 'NORMAL' || flagUpper === 'N';
+                  const isNormal = isQualitativeNeg || flagUpper === 'NORMAL' || flagUpper === 'N';
 
                   let flagBadge = (
                     <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-bold">
@@ -316,7 +359,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     );
                   }
 
-                  const speechLine = `${item.name}: ${item.value_num || item.value_raw} ${item.unit}. Khoảng chuẩn là ${item.reference_range_used || 'chưa rõ'}.`;
+                  const speechLine = `${item.name}: Kết quả là ${displayVal}. ${displayUnit !== '-' ? 'Đơn vị ' + displayUnit + '.' : ''} Khoảng chuẩn là ${refRange}.`;
 
                   return (
                     <tr
@@ -325,12 +368,12 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     >
                       <td className="py-4 px-3 font-bold text-[#073F46]">{item.name}</td>
                       <td className="py-4 px-3 font-black text-xl text-[#14283A]">
-                        {item.value_num !== undefined ? item.value_num : item.value_raw}
+                        {displayVal}
                       </td>
-                      <td className="py-4 px-3 text-[#5B6B77]">{item.unit || '-'}</td>
+                      <td className="py-4 px-3 text-[#5B6B77]">{displayUnit}</td>
                       <td className="py-4 px-3 text-sm">
                         <div className="font-semibold text-gray-800">
-                          {item.reference_range_used || item.reference_range_raw || 'Không in'}
+                          {refRange}
                         </div>
                         <div className="text-xs text-gray-400">
                           {item.reference_source === 'printed_report' ? 'Nguồn: In trên phiếu' : 'Nguồn: Kho chuẩn HMU'}

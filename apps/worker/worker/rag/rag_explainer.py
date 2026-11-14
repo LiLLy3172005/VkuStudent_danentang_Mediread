@@ -79,10 +79,11 @@ class RagExplainer:
 
     def _init_vector_db(self):
         """Lazy load ChromaDB collection if directory exists."""
-        if self._db is not None:
+        if self._db is not None or getattr(self, "_db_failed", False):
             return
         if not Path(self.chroma_dir).is_dir():
             logger.info("ChromaDB directory not found at %s. Running in fallback mode.", self.chroma_dir)
+            self._db_failed = True
             return
 
         try:
@@ -99,7 +100,8 @@ class RagExplainer:
                 collection_metadata={"hnsw:space": "cosine"},
             )
         except Exception as exc:
-            logger.warning("Failed to initialize ChromaDB: %s. Using internal knowledge base.", exc)
+            self._db_failed = True
+            logger.warning("ChromaDB vector search unavailable: %s. Using internal clinical knowledge base.", exc)
 
     def retrieve_context(self, query: str, k: int = 3) -> Tuple[str, List[Dict[str, str]]]:
         """Retrieves top-k relevant medical chunks."""
