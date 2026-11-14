@@ -4,6 +4,7 @@ Protects against DoS, path traversal, spoofed MIME types, and malicious payloads
 """
 
 import os
+import sys
 import uuid
 import re
 from pathlib import Path
@@ -13,6 +14,11 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.config import settings
+
+# Ensure sibling worker package is in sys.path
+_WORKER_PATH = Path(__file__).resolve().parents[2] / "worker"
+if _WORKER_PATH.is_dir() and str(_WORKER_PATH) not in sys.path:
+    sys.path.insert(0, str(_WORKER_PATH))
 
 # SlowAPI Limiter configured with client remote address
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.RATE_LIMIT_DEFAULT])

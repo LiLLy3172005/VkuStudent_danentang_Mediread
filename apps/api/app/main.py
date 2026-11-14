@@ -3,14 +3,21 @@ MediRead AI - Production FastAPI Application
 Senior Architecture: Modular, Async, Decoupled Worker, Rate-Limited, Secure.
 """
 
+import sys
 import time
 import uuid
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
+
+# Ensure sibling package apps/worker is importable
+_WORKER_PATH = Path(__file__).resolve().parents[2] / "worker"
+if _WORKER_PATH.is_dir() and str(_WORKER_PATH) not in sys.path:
+    sys.path.insert(0, str(_WORKER_PATH))
 
 from app.config import settings
 from app.security import limiter
@@ -60,8 +67,9 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
