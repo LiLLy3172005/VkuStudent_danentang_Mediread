@@ -33,8 +33,8 @@ def generate_test_jwt(user_id: uuid.UUID, secret: str = settings.SUPABASE_JWT_SE
 class TestApiSecurity(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
-        self.patient_a = uuid.uuid4()
-        self.patient_b = uuid.uuid4()
+        self.patient_a = uuid.UUID("11111111-1111-1111-1111-111111111101")
+        self.patient_b = uuid.UUID("11111111-1111-1111-1111-111111111102")
         self.token_a = generate_test_jwt(self.patient_a)
         self.token_b = generate_test_jwt(self.patient_b)
 

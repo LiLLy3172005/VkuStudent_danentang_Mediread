@@ -34,6 +34,7 @@ async def login(req: LoginRequest):
     """
     # Deterministic or mock user UUID based on role
     user_id = DEMO_CAREGIVER_UUID if req.role == "caregiver" else DEMO_PATIENT_UUID
+    name = "Trần Minh Tuấn (Con trai)" if req.role == "caregiver" else "Bác Trần Văn Minh (Bệnh nhân)"
     email = f"{req.phone.replace(' ', '')}@mediread.ai"
 
     token = create_access_token(
@@ -49,7 +50,7 @@ async def login(req: LoginRequest):
             "id": str(user_id),
             "phone": req.phone,
             "role": req.role,
-            "name": req.name or ("Người chăm sóc" if req.role == "caregiver" else "Bệnh nhân cao tuổi"),
+            "name": req.name or name,
             "email": email,
         },
     )

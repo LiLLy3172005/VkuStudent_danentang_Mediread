@@ -14,9 +14,9 @@ from app.config import settings
 
 logger = logging.getLogger("mediread.auth")
 
-# Stable UUIDs for local evaluation / demo sessions
-DEMO_PATIENT_UUID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-DEMO_CAREGIVER_UUID = uuid.UUID("00000000-0000-0000-0000-000000000002")
+# Stable UUIDs for local evaluation / demo sessions (matches Supabase profiles)
+DEMO_PATIENT_UUID = uuid.UUID("11111111-1111-1111-1111-111111111101")
+DEMO_CAREGIVER_UUID = uuid.UUID("11111111-1111-1111-1111-111111111108")
 
 
 class AuthenticatedUser(BaseModel):

@@ -187,7 +187,8 @@ class SupabaseService:
                         "ref_low": lab.get("ref_low"),
                         "ref_high": lab.get("ref_high"),
                         "ref_text": lab.get("reference_range_used"),
-                        "flag": (lab.get("flag") or "UNKNOWN").upper(),
+                        "flag": (lab.get("flag") or "").upper() if (lab.get("flag") or "").upper() in ("H", "L", "N") else None,
+                        "flag_note": lab.get("flag_note") or (lab.get("flag") if (lab.get("flag") or "").upper() not in ("H", "L", "N") else None),
                     }).execute()
             except Exception as exc:
                 logger.error("Supabase save worker results failed: %s", exc)
