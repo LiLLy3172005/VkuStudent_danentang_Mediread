@@ -1,0 +1,97 @@
+services:
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.mediread.ai
+    networks:
+      - edge
+      - private
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      - APP_ENV=production
+      - OLLAMA_BASE_URL=http://ollama:11434
+    networks:
+      - private
+      - edge
+    expose:
+      - "8000"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+
+  worker:
+    build:
+      context: ../apps/worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - PADDLE_DET_DIR=/models/det
+      - PADDLE_REC_DIR=/models/rec
+      - PADDLE_CLS_DIR=/models/cls
+    volumes:
+      - ./models:/models:ro
+      - storage_data:/app/storage
+    depends_on:
+      - ollama
+    networks:
+      - private
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 6144M
+
+  ollama:
+    image: ollama/ollama:0.5.7
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - private
+    expose:
+      - "11434"
+    # Never expose port 11434 to public Internet
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/mediread.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - web
+      - api
+    networks:
+      - edge
+
+networks:
+  edge:
+    driver: bridge
+  private:
+    internal: true
+
+volumes:
+  ollama_data:
+  storage_data:
