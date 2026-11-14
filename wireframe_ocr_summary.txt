@@ -1,0 +1,104 @@
+=== sheet1.png ===
+  * 01- Splash
+  * 06 - Trang chủ
+  * 02 - Giới thiệu 1
+  * 07 - Chụp đơn thuốc.
+  * 03 - Giới thiệu 2
+  * 08 - Cảnh báo ảnh mỡ.
+  * 04 - Chọn vai trò
+  * 09 - AI dang xử lý.
+  * 05 - Thiết lập chữ & giọng đọc
+  * 10 - Xác nhận kết quả
+
+=== sheet10.png ===
+  * 92 - Xem ảnh gốc & vùng AI đọc. 93 - Ghi chú cho đơn thuốc. 94 - Bộ lọc lịch sử: 95 - Thùng rác
+  * 96 - Xác nhận xóa đơn thuốc. 97 - Nhắc tái đơn & mua thuốc 98 - Đếm ngược liều cách nhau 8 giờ. 99 - Trợ nang 100 - Ảnh trước & sau khi xử lý
+
+=== sheet11.png ===
+  * 101 - Chào mừng quay lại
+  * 107 - Hỏi AI: gợi ý câu hỏi
+  * 102 - Chế độ trình diễn (đơn mẫu)
+  * 108 - Thẻ y tế khẩn cấp
+  * 103 - Chất lượng AI (chi số đo lường)
+  * 104 - Chọn cách đọc chữ (OCR) 105 - Nguồn tri thức y khoa.
+  * 109 - Bang giờ uống thuốc để in
+  * 106 - Xem trích dẫn nguồn
+  * 112 - Nhật ký liéu trong ngày
+
+=== sheet2.png ===
+  * 1 - Chỉnh sửa thuốc.
+  * 16 - Báo thức nhắc thuốc.
+  * 2 - Giải thích thuốc (có nguồn)
+  * 7 - Đọc to bằng giọng nói
+  * 18 - Hỗi AI & từ chối an toàn
+  * 18 - Kết quả xét nghiệm
+  * 14 - Thiết lập lịch nhắc. 16 - Lịch hôm nay
+  * 19 - Lịch sử & hổ sơ 20 - Cá nhân & riêng tư
+
+=== sheet3.png ===
+  * 21 - Nhập mã xác thực.
+  * 26 - Đối chiều ảnh gốc & chữ đọc được
+  * 22 - Mã PIN & sinh trắc học.
+  * 27 - Thêm thuốc thủ công
+  * 23 - Chọn loại tài liệu
+  * 28 - Chuẩn hóa tên thuốc
+  * 24 - Chọn ảnh từ thư viện
+  * 29 - Đã tạo lịch thành công
+  * 25 - Cắt & căn chỉnh ảnh.
+  * 30 - Lịch thang
+
+=== sheet4.webp ===
+
+=== sheet5.png ===
+  * 41 - Ngôn ngữ & giọng vùng miền 42 - Cấp quyền truy cập 43 - Hồ sơ sức khỏe cơ bản. 44 - Bác sĩ & cơ sở khám 45 - Quét mã vạch hộp thuốc.
+  * 46 - Đơn thuốc nhiều trang 47 - Thẻ thuốc chữ lớn 48 - Tác dụng phụ cần biết 49 - Bao quản & hạn dùng 50 - Thuốc theo buổi trong ngày.
+
+=== sheet6.png ===
+  * 51 - Lap lại & thời hạn
+  * 56 - Lich sử hỏi đáp với AI
+  * 52 - Kết thúc liệu trình
+  * 57 - Xuất báo cáo cho bác sĩ
+  * 53 - Thông bao trên màn hình khóa
+  * 58 - Lịch tai khám.
+  * 54 - So sánh hai đơn thuốc.
+  * 59 - Quản lý dữ liệu & quyền riêng tu
+  * 55 - Cảnh báo tương tác thuốc
+  * 60 - Chế độ đơn giản (chữ siêu lớn)
+
+=== sheet7.png ===
+  * 61 - Quên mã PIN
+  * 66 - Đọc nhãn hộp thuốc.
+  * 62 - Chọn hồ sơ người dùng
+  * 44-9
+  * 67 - Danh sách chi số xét nghiệm
+  * 63 - Mẹo chụp ảnh đúng cách
+  * 68 - Nhập chỉ sổ xét nghiệm
+  * 64 - Kiểm tra ảnh trực tiếp.
+  * 2-3 tháng gần đây, không chỉ riêng
+  * 69 - Giải thích thuật ngữ y khoa.
+  * 65 - Chọn vùng cần doc
+  * 70 - Giải mã chữ viết tắt trên đơn
+
+=== sheet8.png ===
+  * 76 - Bao cáo tuân thủ theo tháng
+  * 72 - Widget màn hình chính.
+  * 77 - Mục tiêu & huy hiệu
+  * 73 - Giờ yên tĩnh
+  * 78 - Al da đọc như thé nào.
+  * 74 - Chọn chuông nhắc thuốc.
+  * 79 - Báo AI đọc sai
+  * 76 - Giờ ăn & giờ ngủ
+  * 80 - Về MediRead AI
+
+=== sheet9.png ===
+  * 81- Có phiên bản mới
+  * 86 - Đã uống đủ hôm nay
+  * 82 - Giới thiệu 3
+  * 87 - Không phải đơn thuốc.
+  * 83 - Đồng ý điều khoản.
+  * 88 - Dịch vụ AI tạm gián đoạn
+  * 84 - Hướng dẫn nhanh trên Trang chủ
+  * 89 - Đang tải dữ liệu
+  * 85 - Chưa có đơn thuốc
+  * 90 - Tìm kiếm
+

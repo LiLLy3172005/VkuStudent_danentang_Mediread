@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediRead AI — Trợ lý Đọc hiểu Y khoa Thông minh</title>
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+          colors: {
+            teal: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+            },
+            elder: {
+              ink: '#1c2826',
+              card: '#ffffff',
+              bg: '#f4f8f7',
+              warning: '#fffbeb',
+              danger: '#fef2f2',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Tối ưu cỡ chữ và khả năng tiếp cận cho người lớn tuổi */
+    body {
+      font-size: 19px;
+      line-height: 1.6;
+      color: #1c2826;
+      background-color: #f0f5f4;
+    }
+    .elder-btn {
+      min-height: 56px;
+      font-size: 20px;
+      font-weight: 700;
+      border-radius: 16px;
+      transition: all 0.2s ease;
+    }
+    .elder-btn:active {
+      transform: scale(0.98);
+    }
+    .elder-card {
+      border-radius: 20px;
+      border: 1px solid #e0ece9;
+      box-shadow: 0 4px 20px -2px rgba(15, 118, 110, 0.08);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="bg-white border-b border-teal-100 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-700 to-teal-500 flex items-center justify-center text-white text-2xl shadow-md">
+          <i class="fa-solid fa-notes-medical"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-black text-teal-900 tracking-tight flex items-center gap-2">
+            MediRead <span class="text-teal-600">AI</span>
+          </h1>
+          <p class="text-xs text-gray-500 font-medium">Hỗ trợ đọc đơn thuốc & phiếu xét nghiệm cho người cao tuổi</p>
+        </div>
+      </div>
+
+      <!-- RAG STATUS SWITCHER -->
+      <div class="flex items-center gap-2 bg-teal-50 px-3 py-1.5 rounded-full border border-teal-200">
+        <span class="text-xs font-bold text-teal-800"><i class="fa-solid fa-robot mr-1"></i>Chế độ RAG:</span>
+        <button id="btnToggleRag" onclick="toggleRagMode()" class="text-xs font-extrabold px-3 py-1 rounded-full bg-teal-600 text-white hover:bg-teal-700 transition">
+          <span id="ragModeBadge">Đang nạp...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="max-w-6xl mx-auto px-4 flex gap-2 border-t border-gray-100">
+      <button onclick="switchTab('scan')" id="tabBtn-scan" class="py-3 px-5 font-bold text-teal-700 border-b-4 border-teal-600 flex items-center gap-2 text-lg">
+        <i class="fa-solid fa-camera"></i> Quét & Đọc đơn
+      </button>
+      <button onclick="switchTab('schedule')" id="tabBtn-schedule" class="py-3 px-5 font-semibold text-gray-600 hover:text-teal-700 flex items-center gap-2 text-lg">
+        <i class="fa-solid fa-clock"></i> Lịch uống thuốc
+      </button>
+      <button onclick="switchTab('rag')" id="tabBtn-rag" class="py-3 px-5 font-semibold text-gray-600 hover:text-teal-700 flex items-center gap-2 text-lg">
+        <i class="fa-solid fa-book-medical"></i> Tra cứu RAG
+      </button>
+      <button onclick="switchTab('history')" id="tabBtn-history" class="py-3 px-5 font-semibold text-gray-600 hover:text-teal-700 flex items-center gap-2 text-lg">
+        <i class="fa-solid fa-clock-rotate-left"></i> Lịch sử quét
+      </button>
+    </nav>
+  </header>
+
+  <!-- MEDICAL DISCLAIMER BANNER -->
+  <div class="bg-amber-100 border-b border-amber-200 text-amber-900 px-4 py-2 text-sm text-center font-medium flex items-center justify-center gap-2">
+    <i class="fa-solid fa-shield-heart text-amber-600 text-base"></i>
+    <span><strong>Khuyến cáo:</strong> Thông tin do MediRead AI cung cấp chỉ mang tính chất tham khảo, giải thích thuật ngữ, không thay thế chẩn đoán hay đơn thuốc của bác sĩ điều trị.</span>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
+
+    <!-- ========================================== -->
+    <!-- TAB 1: SCAN STUDIO -->
+    <!-- ========================================== -->
+    <div id="tab-scan" class="space-y-6">
+      
+      <!-- LỰA CHỌN LOẠI TÀI LIỆU -->
+      <div class="bg-white p-5 elder-card">
+        <div class="text-xl font-bold mb-3 text-teal-900 flex items-center gap-2">
+          <i class="fa-solid fa-file-medical text-teal-600"></i> Bác muốn đọc loại giấy khám nào?
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label class="flex items-center gap-4 p-4 border-2 rounded-2xl cursor-pointer hover:border-teal-500 transition has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50">
+            <input type="radio" name="docType" value="prescription" checked class="w-6 h-6 text-teal-600" onchange="onDocTypeChange()">
+            <div>
+              <div class="text-xl font-extrabold text-teal-950">💊 Đơn thuốc bác sĩ</div>
+              <div class="text-sm text-gray-600">Đọc tên thuốc, liều lượng, hướng dẫn uống sáng/trưa/tối</div>
+            </div>
+          </label>
+
+          <label class="flex items-center gap-4 p-4 border-2 rounded-2xl cursor-pointer hover:border-teal-500 transition has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50">
+            <input type="radio" name="docType" value="lab_result" class="w-6 h-6 text-teal-600" onchange="onDocTypeChange()">
+            <div>
+              <div class="text-xl font-extrabold text-teal-950">🧪 Phiếu kết quả xét nghiệm</div>
+              <div class="text-sm text-gray-600">Xét nghiệm máu, đường huyết, mỡ máu, chức năng gan thận</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- NHẬP LIỆU: TẢI ẢNH HOẶC DÁN VĂN BẢN -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Cột Tải Ảnh -->
+        <div class="lg:col-span-5 bg-white p-6 elder-card flex flex-col justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-teal-900 mb-2">📸 Chụp hoặc tải ảnh lên</h2>
+            <p class="text-sm text-gray-500 mb-4">Hỗ trợ ảnh chụp rõ nét từ điện thoại hoặc máy scan</p>
+
+            <div class="border-3 border-dashed border-teal-200 hover:border-teal-500 rounded-2xl p-6 text-center bg-teal-50/30 transition cursor-pointer relative" onclick="document.getElementById('fileInput').click()">
+              <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+              <div id="uploadPlaceholder">
+                <i class="fa-solid fa-cloud-arrow-up text-5xl text-teal-600 mb-3"></i>
+                <div class="text-lg font-bold text-teal-900">Bấm để chọn ảnh từ máy</div>
+                <div class="text-xs text-gray-500 mt-1">Hỗ trợ JPG, PNG, WEBP (tối đa 15MB)</div>
+              </div>
+              <div id="imagePreviewContainer" class="hidden">
+                <img id="imagePreview" src="" alt="Ảnh đơn thuốc" class="max-h-64 mx-auto rounded-lg shadow-sm border border-gray-200">
+                <div class="mt-2 text-sm font-semibold text-teal-700" id="previewFilename"></div>
+              </div>
+            </div>
+
+            <!-- TÙY CHỌN CHE THÔNG TIN CÁ NHÂN (PII ANONYMIZATION) -->
+            <div class="mt-4 p-3 bg-teal-50 rounded-xl border border-teal-200">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" id="chkMaskPii" checked class="w-5 h-5 text-teal-600 rounded">
+                <div class="text-sm">
+                  <span class="font-bold text-teal-950">Tự động che tên & thông tin riêng tư (PII)</span>
+                  <div class="text-xs text-gray-600">Bôi đen họ tên, số điện thoại, CCCD, barcode trước khi gửi</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <button onclick="startUploadAndScan()" id="btnUploadScan" class="mt-4 w-full elder-btn bg-teal-700 hover:bg-teal-800 text-white flex items-center justify-center gap-3 shadow-md">
+            <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+            <span>Phân tích ảnh này</span>
+          </button>
+        </div>
+
+        <!-- Cột Nhập Văn Bản OCR Trực Tiếp -->
+        <div class="lg:col-span-7 bg-white p-6 elder-card flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-xl font-bold text-teal-900">📝 Hoặc dán nội dung chữ (OCR)</h2>
+              <div class="flex gap-2">
+                <button onclick="loadSample('prescription')" class="text-xs font-bold bg-teal-100 text-teal-800 hover:bg-teal-200 px-3 py-1.5 rounded-lg transition">
+                  <i class="fa-solid fa-vial-circle-check mr-1"></i> Mẫu đơn thuốc
+                </button>
+                <button onclick="loadSample('lab_result')" class="text-xs font-bold bg-teal-100 text-teal-800 hover:bg-teal-200 px-3 py-1.5 rounded-lg transition">
+                  <i class="fa-solid fa-vial mr-1"></i> Mẫu xét nghiệm
+                </button>
+              </div>
+            </div>
+            <p class="text-sm text-gray-500 mb-3">Bác có thể dán trực tiếp đoạn văn bản đơn thuốc hoặc phiếu xét nghiệm</p>
+            
+            <textarea id="ocrTextInput" rows="8" class="w-full p-4 border border-teal-200 rounded-xl text-base focus:ring-2 focus:ring-teal-500 focus:outline-none bg-gray-50 focus:bg-white transition" placeholder="Ví dụ:
+1. Amlodipin 5mg x 30 viên. Sáng 1 viên sau ăn.
+2. Metformin 500mg x 60 viên. Sáng 1 viên, Tối 1 viên sau ăn..."></textarea>
+          </div>
+
+          <button onclick="startTextScan()" id="btnTextScan" class="mt-4 w-full elder-btn bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-3 shadow-md">
+            <i class="fa-solid fa-stethoscope text-xl"></i>
+            <span>Đọc và Giải thích ngay</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- VÙNG HIỂN THỊ TRẠNG THÁI ĐANG XỬ LÝ (LOADING) -->
+      <div id="loadingState" class="hidden bg-white p-8 elder-card text-center space-y-4">
+        <div class="inline-block animate-spin text-teal-600 text-5xl">
+          <i class="fa-solid fa-spinner"></i>
+        </div>
+        <div class="text-2xl font-black text-teal-900" id="loadingTitle">Đang đọc đơn thuốc, bác vui lòng chờ chút nhé...</div>
+        <div class="text-base text-gray-600" id="loadingSub">Hệ thống đang trích xuất tên thuốc và tra cứu tài liệu Dược thư y khoa.</div>
+      </div>
+
+      <!-- VÙNG HIỂN THỊ KẾT QUẢ QUÉT (SCAN RESULT) -->
+      <div id="scanResultContainer" class="hidden space-y-6">
+
+        <!-- THANH ĐIỀU KHIỂN & ĐỌC TO (TTS) -->
+        <div class="bg-gradient-to-r from-teal-800 to-teal-700 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-3xl">
+              <i class="fa-solid fa-circle-check text-teal-200"></i>
+            </div>
+            <div>
+              <div class="text-2xl font-black" id="resultHeaderTitle">Đã phân tích xong!</div>
+              <div class="text-teal-100 text-sm" id="resultHeaderSub">Tìm thấy các thông tin chi tiết bên dưới</div>
+            </div>
+          </div>
+
+          <!-- NÚT ĐỌC TO CHO NGƯỜI CAO TUỔI -->
+          <div class="flex items-center gap-3 w-full md:w-auto">
+            <button onclick="speakFullResult()" id="btnSpeak" class="flex-1 md:flex-initial px-6 py-3 bg-amber-400 hover:bg-amber-300 text-teal-950 font-black rounded-xl text-lg flex items-center justify-center gap-3 shadow transition">
+              <i class="fa-solid fa-volume-high text-xl"></i>
+              <span>Đọc to kết quả</span>
+            </button>
+            <button onclick="stopSpeak()" class="px-4 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-xl text-base transition">
+              <i class="fa-solid fa-stop"></i> Dừng
+            </button>
+          </div>
+        </div>
+
+        <!-- CẢNH BÁO NẾU ĐỘ TIN CẬY THẤP HOẶC KHÔNG CÓ TRÍCH DẪN -->
+        <div id="lowConfidenceAlert" class="hidden bg-amber-50 border-2 border-amber-300 p-4 rounded-2xl flex items-start gap-4">
+          <i class="fa-solid fa-triangle-exclamation text-amber-600 text-2xl mt-1"></i>
+          <div>
+            <div class="text-lg font-bold text-amber-950">Chữ trong ảnh hơi mờ hoặc chưa chắc chắn hoàn toàn!</div>
+            <p class="text-sm text-amber-800">MediRead AI đã cố gắng nhận diện tối đa. Bác/cô chú hãy đối chiếu lại với đơn thuốc gốc hoặc hỏi lại bác sĩ để chắc chắn nhé.</p>
+          </div>
+        </div>
+
+        <!-- ẢNH ĐÃ ĐƯỢC CHE PII (NẾU CÓ) -->
+        <div id="anonImageSection" class="hidden bg-white p-5 elder-card">
+          <h3 class="text-lg font-bold text-teal-900 mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-user-shield text-teal-600"></i> Ảnh đã được bảo vệ thông tin cá nhân (PII):
+          </h3>
+          <img id="anonImagePreview" src="" class="max-h-80 mx-auto rounded-xl border border-gray-300 shadow-sm">
+        </div>
+
+        <!-- DANH SÁCH CÁC THUỐC HOẶC CHỈ SỐ XÉT NGHIỆM -->
+        <div id="itemsContainer" class="space-y-4">
+          <!-- Các thẻ item sẽ được render động tại đây -->
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: MEDICATION SCHEDULE -->
+    <!-- ========================================== -->
+    <div id="tab-schedule" class="hidden space-y-6">
+      <div class="bg-white p-6 elder-card">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-2xl font-black text-teal-900">⏰ Lịch nhắc uống thuốc hôm nay</h2>
+            <p class="text-base text-gray-600">Các cữ uống tự động tạo từ đơn thuốc bác vừa quét</p>
+          </div>
+          <button onclick="speakSchedule()" class="px-5 py-2.5 bg-teal-100 hover:bg-teal-200 text-teal-900 font-bold rounded-xl text-base flex items-center gap-2 transition">
+            <i class="fa-solid fa-volume-high text-teal-700"></i> Đọc lịch nhắc
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="scheduleSlotsContainer">
+          <!-- 4 khung giờ: Sáng, Trưa, Chiều, Tối -->
+          <div class="border-2 border-teal-200 rounded-2xl p-4 bg-teal-50/40" id="slot-morning">
+            <div class="flex items-center justify-between border-b border-teal-200 pb-2 mb-3">
+              <span class="text-xl font-black text-teal-900">🌅 Buổi Sáng</span>
+              <span class="text-sm font-bold bg-teal-600 text-white px-2 py-0.5 rounded-md">07:00</span>
+            </div>
+            <div class="space-y-2 text-base text-gray-700" id="slotList-morning">
+              <div class="text-sm text-gray-400 italic">Chưa có thuốc trong cữ này</div>
+            </div>
+          </div>
+
+          <div class="border-2 border-amber-200 rounded-2xl p-4 bg-amber-50/30" id="slot-noon">
+            <div class="flex items-center justify-between border-b border-amber-200 pb-2 mb-3">
+              <span class="text-xl font-black text-amber-950">☀️ Buổi Trưa</span>
+              <span class="text-sm font-bold bg-amber-600 text-white px-2 py-0.5 rounded-md">11:30</span>
+            </div>
+            <div class="space-y-2 text-base text-gray-700" id="slotList-noon">
+              <div class="text-sm text-gray-400 italic">Chưa có thuốc trong cữ này</div>
+            </div>
+          </div>
+
+          <div class="border-2 border-orange-200 rounded-2xl p-4 bg-orange-50/30" id="slot-afternoon">
+            <div class="flex items-center justify-between border-b border-orange-200 pb-2 mb-3">
+              <span class="text-xl font-black text-orange-950">🌤️ Buổi Chiều</span>
+              <span class="text-sm font-bold bg-orange-600 text-white px-2 py-0.5 rounded-md">16:00</span>
+            </div>
+            <div class="space-y-2 text-base text-gray-700" id="slotList-afternoon">
+              <div class="text-sm text-gray-400 italic">Chưa có thuốc trong cữ này</div>
+            </div>
+          </div>
+
+          <div class="border-2 border-indigo-200 rounded-2xl p-4 bg-indigo-50/30" id="slot-evening">
+            <div class="flex items-center justify-between border-b border-indigo-200 pb-2 mb-3">
+              <span class="text-xl font-black text-indigo-950">🌙 Buổi Tối</span>
+              <span class="text-sm font-bold bg-indigo-600 text-white px-2 py-0.5 rounded-md">20:00</span>
+            </div>
+            <div class="space-y-2 text-base text-gray-700" id="slotList-evening">
+              <div class="text-sm text-gray-400 italic">Chưa có thuốc trong cữ này</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: RAG PLAYGROUND -->
+    <!-- ========================================== -->
+    <div id="tab-rag" class="hidden space-y-6">
+      <div class="bg-white p-6 elder-card">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-4">
+          <div>
+            <h2 class="text-2xl font-black text-teal-900 flex items-center gap-2">
+              <i class="fa-solid fa-brain text-teal-600"></i> Phòng Thử Nghiệm RAG Y Khoa
+            </h2>
+            <p class="text-base text-gray-600">Tra cứu trực tiếp một thuốc hoặc chỉ số xét nghiệm theo hợp đồng API</p>
+          </div>
+
+          <!-- CÔNG TẮC CHUYỂN MOCK / THẬT -->
+          <div class="p-3 bg-teal-50 rounded-2xl border border-teal-200 flex items-center gap-3">
+            <span class="text-sm font-bold text-teal-950">Nguồn dữ liệu RAG:</span>
+            <button onclick="toggleRagMode()" class="px-4 py-2 rounded-xl text-sm font-extrabold text-white bg-teal-700 hover:bg-teal-800 transition flex items-center gap-2">
+              <span id="ragPlaygroundBadge">Đang nạp...</span>
+              <i class="fa-solid fa-repeat text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- FORM TRA CỨU -->
+        <div class="flex flex-col md:flex-row gap-3">
+          <input type="text" id="ragQueryInput" class="flex-1 p-4 border border-teal-200 rounded-xl text-lg focus:ring-2 focus:ring-teal-500 focus:outline-none" placeholder="Nhập tên thuốc hoặc chỉ số (vd: Amlodipin, Glucose, Creatinin...)" onkeydown="if(event.key==='Enter') executeRagQuery()">
+          <button onclick="executeRagQuery()" class="elder-btn px-8 bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-2 shadow">
+            <i class="fa-solid fa-magnifying-glass"></i> Tra cứu
+          </button>
+        </div>
+
+        <!-- GỢI Ý NHANH -->
+        <div class="mt-3 flex flex-wrap gap-2 text-sm">
+          <span class="text-gray-500 font-semibold self-center">Gợi ý thử:</span>
+          <button onclick="testQuickRag('Amlodipin')" class="px-3 py-1 bg-gray-100 hover:bg-teal-100 text-teal-800 rounded-lg">Amlodipin</button>
+          <button onclick="testQuickRag('Metformin')" class="px-3 py-1 bg-gray-100 hover:bg-teal-100 text-teal-800 rounded-lg">Metformin</button>
+          <button onclick="testQuickRag('Chỉ số Glucose máu')" class="px-3 py-1 bg-gray-100 hover:bg-teal-100 text-teal-800 rounded-lg">Glucose máu</button>
+          <button onclick="testQuickRag('Creatinin')" class="px-3 py-1 bg-gray-100 hover:bg-teal-100 text-teal-800 rounded-lg">Creatinin</button>
+          <button onclick="testQuickRag('Thời tiết hôm nay thế nào?')" class="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-800 rounded-lg">Câu hỏi ngoài y khoa (Test an toàn)</button>
+        </div>
+
+        <!-- KẾT QUẢ RAG -->
+        <div id="ragResultArea" class="mt-6 hidden space-y-4">
+          <div class="p-6 rounded-2xl border-2" id="ragResultCard">
+            <div class="flex items-center justify-between mb-3">
+              <span id="ragGroundedBadge" class="text-sm font-bold px-3 py-1 rounded-full"></span>
+              <button onclick="speakRagAnswer()" class="text-sm font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1.5">
+                <i class="fa-solid fa-volume-high"></i> Nghe câu trả lời
+              </button>
+            </div>
+            <div id="ragAnswerText" class="text-xl font-bold text-gray-900 leading-relaxed mb-4"></div>
+            
+            <!-- NGUỒN TRÍCH DẪN -->
+            <div id="ragSourcesContainer" class="border-t border-gray-200 pt-3 mt-3">
+              <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tài liệu tham chiếu y khoa:</div>
+              <div id="ragSourcesList" class="space-y-2"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: HISTORY -->
+    <!-- ========================================== -->
+    <div id="tab-history" class="hidden space-y-6">
+      <div class="bg-white p-6 elder-card">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-black text-teal-900">📚 Lịch sử các lần quét đơn thuốc</h2>
+          <button onclick="loadHistory()" class="px-4 py-2 bg-gray-100 hover:bg-teal-100 text-teal-900 font-bold rounded-xl text-sm flex items-center gap-2">
+            <i class="fa-solid fa-arrows-rotate"></i> Làm mới
+          </button>
+        </div>
+        <div id="historyListContainer" class="space-y-3">
+          <div class="text-gray-500 text-center py-8">Đang tải lịch sử...</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // Trạng thái toàn cục
+    let currentUseMock = true;
+    let selectedFile = null;
+    let currentResultData = null;
+    let schedulesList = [];
+
+    // Mẫu đơn thuốc và xét nghiệm
+    const SAMPLE_PRESCRIPTION = `BỆNH VIỆN BẠCH MAI - KHOA KHÁM BỆNH
+ĐƠN THUỐC
+Chẩn đoán: Tăng huyết áp vô căn, Đái tháo đường typ 2
+
+1. Amlodipin 5mg x 30 viên
+Uống: Sáng 1 viên sau khi ăn sáng.
+
+2. Metformin hydrochloride 500mg x 60 viên
+Uống: Sáng 1 viên sau ăn, Tối 1 viên sau ăn tối.
+
+3. Paracetamol 500mg x 10 viên
+Uống: Khi đau đầu hoặc sốt trên 38.5 độ, 1 viên/lần, cách ít nhất 6 tiếng.
+
+Lời dặn: Hạn chế ăn mặn, kiêng đồ ngọt, tái khám sau 1 tháng.`;
+
+    const SAMPLE_LAB = `KẾT QUẢ XÉT NGHIỆM MÁU
+Họ tên bệnh nhân: NGUYỄN VĂN AN - 68 tuổi
+1. Glucose (Đường huyết đói): 7.8 mmol/L [Khoảng tham chiếu: 3.9 - 6.4] -> Cao (H)
+2. Creatinin huyết thanh: 98 µmol/L [Khoảng tham chiếu: 62 - 106] -> Bình thường
+3. Cholesterol toàn phần: 6.5 mmol/L [Khoảng tham chiếu: < 5.2] -> Cao (H)
+4. Triglycerid: 2.4 mmol/L [Khoảng tham chiếu: 0.4 - 1.8] -> Cao (H)`;
+
+    // Chuyển Tab
+    function switchTab(tabId) {
+      ['scan', 'schedule', 'rag', 'history'].forEach(id => {
+        document.getElementById(`tab-${id}`).classList.add('hidden');
+        const btn = document.getElementById(`tabBtn-${id}`);
+        btn.classList.remove('text-teal-700', 'border-b-4', 'border-teal-600', 'font-bold');
+        btn.classList.add('text-gray-600', 'font-semibold');
+      });
+
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tabBtn-${tabId}`);
+      activeBtn.classList.remove('text-gray-600', 'font-semibold');
+      activeBtn.classList.add('text-teal-700', 'border-b-4', 'border-teal-600', 'font-bold');
+
+      if (tabId === 'history') loadHistory();
+      if (tabId === 'schedule') loadSchedules();
+    }
+
+    // Nạp dữ liệu mẫu
+    function loadSample(type) {
+      if (type === 'prescription') {
+        document.querySelector('input[name="docType"][value="prescription"]').checked = true;
+        document.getElementById('ocrTextInput').value = SAMPLE_PRESCRIPTION;
+      } else {
+        document.querySelector('input[name="docType"][value="lab_result"]').checked = true;
+        document.getElementById('ocrTextInput').value = SAMPLE_LAB;
+      }
+    }
+
+    function onDocTypeChange() {
+      const docType = document.querySelector('input[name="docType"]:checked').value;
+      if (!document.getElementById('ocrTextInput').value.trim()) {
+        loadSample(docType);
+      }
+    }
+
+    // Xử lý chọn file ảnh
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      selectedFile = file;
+      document.getElementById('uploadPlaceholder').classList.add('hidden');
+      const preview = document.getElementById('imagePreview');
+      const container = document.getElementById('imagePreviewContainer');
+      preview.src = URL.createObjectURL(file);
+      document.getElementById('previewFilename').textContent = file.name;
+      container.classList.remove('hidden');
+    }
+
+    // Khởi tạo trạng thái RAG từ server
+    async function fetchRagStatus() {
+      try {
+        const res = await fetch('/api/v1/rag-status');
+        const data = await res.json();
+        currentUseMock = data.use_mock;
+        updateRagBadges();
+      } catch (e) {
+        console.error("Lỗi lấy trạng thái RAG", e);
+      }
+    }
+
+    async function toggleRagMode() {
+      try {
+        const nextMode = !currentUseMock;
+        const res = await fetch('/api/v1/rag-mode', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ use_mock: nextMode })
+        });
+        const data = await res.json();
+        currentUseMock = data.use_mock;
+        updateRagBadges();
+      } catch (e) {
+        alert("Lỗi khi chuyển đổi chế độ RAG: " + e.message);
+      }
+    }
+
+    function updateRagBadges() {
+      const text = currentUseMock ? 'Bản Giả Lập (Mock)' : 'RAG Thật (ChromaDB)';
+      const color = currentUseMock ? 'bg-amber-600 hover:bg-amber-700' : 'bg-teal-700 hover:bg-teal-800';
+      
+      const b1 = document.getElementById('ragModeBadge');
+      if (b1) {
+        b1.textContent = text;
+        b1.parentElement.className = `text-xs font-extrabold px-3 py-1 rounded-full text-white transition ${color}`;
+      }
+
+      const b2 = document.getElementById('ragPlaygroundBadge');
+      if (b2) b2.textContent = text;
+    }
+
+    // Quét bằng văn bản OCR
+    async function startTextScan() {
+      const text = document.getElementById('ocrTextInput').value.trim();
+      const docType = document.querySelector('input[name="docType"]:checked').value;
+      if (!text) {
+        alert("Bác hãy nhập hoặc dán nội dung chữ vào ô nhé!");
+        return;
+      }
+
+      showLoading(true, "Đang phân tích và giải thích tài liệu...");
+      try {
+        const res = await fetch('/api/v1/scan', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ doc_type: docType, ocr_text: text })
+        });
+        if (!res.ok) throw new Error("Mã lỗi: " + res.status);
+        const data = await res.json();
+        displayScanResult(data);
+      } catch (err) {
+        alert("Có lỗi khi phân tích: " + err.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    // Quét bằng file ảnh upload
+    async function startUploadAndScan() {
+      if (!selectedFile) {
+        alert("Bác vui lòng chọn hoặc chụp một tấm ảnh trước nhé!");
+        return;
+      }
+
+      const docType = document.querySelector('input[name="docType"]:checked').value;
+      const maskPii = document.getElementById('chkMaskPii').checked;
+
+      showLoading(true, "Đang xử lý ảnh, che thông tin riêng tư & đọc chữ...");
+      const formData = new FormData();
+      formData.append('doc_type', docType);
+      formData.append('file', selectedFile);
+      formData.append('mask_pii', maskPii);
+
+      try {
+        const res = await fetch('/api/v1/upload-and-scan', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) throw new Error("Mã lỗi: " + res.status);
+        const data = await res.json();
+        displayScanResult(data);
+      } catch (err) {
+        alert("Có lỗi khi tải và xử lý ảnh: " + err.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function showLoading(show, title) {
+      const loadEl = document.getElementById('loadingState');
+      const resEl = document.getElementById('scanResultContainer');
+      if (show) {
+        loadEl.classList.remove('hidden');
+        resEl.classList.add('hidden');
+        if (title) document.getElementById('loadingTitle').textContent = title;
+      } else {
+        loadEl.classList.add('hidden');
+      }
+    }
+
+    // Hiển thị kết quả quét
+    function displayScanResult(data) {
+      currentResultData = data;
+      const container = document.getElementById('scanResultContainer');
+      container.classList.remove('hidden');
+
+      // Cảnh báo tin cậy thấp
+      const alertBox = document.getElementById('lowConfidenceAlert');
+      if (data.low_confidence) {
+        alertBox.classList.remove('hidden');
+      } else {
+        alertBox.classList.add('hidden');
+      }
+
+      // Ảnh che PII
+      const anonSec = document.getElementById('anonImageSection');
+      if (data.anonymized_image_url) {
+        anonSec.classList.remove('hidden');
+        document.getElementById('anonImagePreview').src = data.anonymized_image_url;
+      } else {
+        anonSec.classList.add('hidden');
+      }
+
+      // Danh sách Items
+      const itemsDiv = document.getElementById('itemsContainer');
+      itemsDiv.innerHTML = '';
+
+      if (!data.items || data.items.length === 0) {
+        itemsDiv.innerHTML = `
+          <div class="bg-white p-6 elder-card text-center text-gray-500">
+            Không tìm thấy thông tin thuốc hoặc chỉ số nào rõ ràng. Bác vui lòng kiểm tra lại ảnh chụp hoặc văn bản nhé.
+          </div>
+        `;
+        return;
+      }
+
+      data.items.forEach((item, index) => {
+        const isMed = item.kind === 'medicine';
+        const card = document.createElement('div');
+        card.className = "bg-white p-6 elder-card border-l-8 " + (isMed ? "border-l-teal-600" : "border-l-blue-600");
+
+        // Nhãn buổi uống thuốc
+        let timesBadges = '';
+        if (item.times && item.times.length > 0) {
+          const slotMap = {
+            morning: 'Sáng (07:00)',
+            noon: 'Trưa (11:30)',
+            afternoon: 'Chiều (16:00)',
+            evening: 'Tối (20:00)'
+          };
+          timesBadges = item.times.map(t => `<span class="px-2.5 py-1 bg-teal-100 text-teal-800 text-xs font-bold rounded-md mr-1">${slotMap[t] || t}</span>`).join('');
+        }
+
+        // Cảnh báo chỉ số xét nghiệm
+        let flagBadge = '';
+        if (item.flag) {
+          if (item.flag === 'high') flagBadge = `<span class="px-3 py-1 bg-red-100 text-red-800 font-extrabold text-sm rounded-full"><i class="fa-solid fa-arrow-up mr-1"></i>Chỉ số Cao</span>`;
+          else if (item.flag === 'low') flagBadge = `<span class="px-3 py-1 bg-amber-100 text-amber-800 font-extrabold text-sm rounded-full"><i class="fa-solid fa-arrow-down mr-1"></i>Chỉ số Thấp</span>`;
+          else flagBadge = `<span class="px-3 py-1 bg-green-100 text-green-800 font-bold text-sm rounded-full">Bình thường</span>`;
+        }
+
+        // Phần RAG Explanation
+        const exp = item.explanation || {};
+        const isGrounded = exp.grounded !== false;
+        
+        let sourcesHtml = '';
+        if (exp.sources && exp.sources.length > 0) {
+          sourcesHtml = `
+            <div class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+              <span class="font-bold text-teal-900"><i class="fa-solid fa-book-open mr-1"></i>Nguồn y khoa:</span>
+              ${exp.sources.map(s => `<span class="inline-block bg-teal-50 text-teal-800 px-2 py-0.5 rounded border border-teal-200 ml-1 font-medium">${s.title}</span>`).join('')}
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+            <div class="flex items-center gap-3">
+              <span class="w-10 h-10 rounded-xl ${isMed ? 'bg-teal-600' : 'bg-blue-600'} text-white flex items-center justify-center text-lg font-bold">
+                ${index + 1}
+              </span>
+              <div>
+                <h3 class="text-2xl font-black text-gray-900">${item.name}</h3>
+                <div class="text-sm font-semibold text-gray-600">
+                  ${isMed ? `Liều lượng: <strong class="text-teal-800">${item.dosage || 'Theo chỉ định'}</strong> • ${item.frequency || ''}` : `Giá trị đo được: <strong class="text-blue-800 text-lg">${item.value !== null ? item.value : 'N/A'} ${item.unit || ''}</strong> (Khoảng chuẩn: ${item.reference_range || 'Chưa rõ'})`}
+                </div>
+              </div>
+            </div>
+            <div>${isMed ? timesBadges : flagBadge}</div>
+          </div>
+
+          <!-- PHẦN DIỄN GIẢI RAG -->
+          <div class="mt-4 p-4 rounded-xl ${isGrounded ? 'bg-teal-50/60 border border-teal-100' : 'bg-amber-50 border border-amber-200'}">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-black uppercase tracking-wider ${isGrounded ? 'text-teal-800' : 'text-amber-800'}">
+                <i class="fa-solid ${isGrounded ? 'fa-circle-info' : 'fa-triangle-exclamation'} mr-1"></i>
+                ${isGrounded ? 'Bác sĩ MediRead giải thích:' : 'Cảnh báo y tế:'}
+              </span>
+              <button onclick="speakText('${item.name}. ${exp.answer ? exp.answer.replace(/'/g, "\\'") : ''}')" class="text-xs font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1">
+                <i class="fa-solid fa-volume-high"></i> Nghe thuốc này
+              </button>
+            </div>
+            <div class="text-lg font-bold text-gray-800 leading-relaxed">
+              ${exp.answer || 'Chưa có thông tin diễn giải.'}
+            </div>
+            ${sourcesHtml}
+          </div>
+        `;
+        itemsDiv.appendChild(card);
+      });
+
+      // Cuộn xuống vùng kết quả
+      container.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ==========================================
+    // TEXT-TO-SPEECH (TTS) TIẾNG VIỆT
+    // ==========================================
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) {
+        alert("Trình duyệt không hỗ trợ đọc giọng nói.");
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';
+      utterance.rate = 0.82; // Tốc độ chậm rãi, rõ chữ cho người lớn tuổi
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function stopSpeak() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function speakFullResult() {
+      if (!currentResultData || !currentResultData.items) return;
+      let speech = "Sau đây là kết quả đọc y khoa của bác. ";
+      currentResultData.items.forEach((it, idx) => {
+        speech += `Mục số ${idx + 1}: ${it.name}. `;
+        if (it.kind === 'medicine') {
+          speech += `Liều dùng ${it.dosage || ''}. `;
+          if (it.explanation && it.explanation.answer) speech += `${it.explanation.answer}. `;
+        } else {
+          speech += `Chỉ số là ${it.value} ${it.unit}. `;
+          if (it.flag === 'high') speech += "Chỉ số này đang cao hơn mức bình thường. ";
+          if (it.explanation && it.explanation.answer) speech += `${it.explanation.answer}. `;
+        }
+      });
+      speech += "Bác hãy nhớ uống thuốc đúng giờ và hỏi ý kiến bác sĩ khi cần thiết nhé.";
+      speakText(speech);
+    }
+
+    // ==========================================
+    // LỊCH UỐNG THUỐC
+    // ==========================================
+    async function loadSchedules() {
+      try {
+        const res = await fetch('/api/v1/schedules');
+        const list = await res.json();
+        schedulesList = list;
+        renderSchedules(list);
+      } catch (e) {
+        console.error("Lỗi nạp lịch:", e);
+      }
+    }
+
+    function renderSchedules(list) {
+      const slots = { morning: [], noon: [], afternoon: [], evening: [] };
+      list.forEach(item => {
+        if (slots[item.time_slot]) slots[item.time_slot].push(item);
+      });
+
+      for (const [slot, items] of Object.entries(slots)) {
+        const div = document.getElementById(`slotList-${slot}`);
+        if (!div) continue;
+        if (items.length === 0) {
+          div.innerHTML = `<div class="text-sm text-gray-400 italic">Chưa có thuốc trong cữ này</div>`;
+        } else {
+          div.innerHTML = items.map(it => `
+            <div class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+              <div>
+                <div class="font-extrabold text-teal-950">${it.medicine_name}</div>
+                <div class="text-xs text-gray-500">${it.dosage || '1 viên'}</div>
+              </div>
+              <button onclick="toggleIntake('${it.id}', this)" class="px-3 py-1.5 rounded-lg text-xs font-bold border border-teal-600 text-teal-700 hover:bg-teal-50 transition">
+                <i class="fa-regular fa-circle-check mr-1"></i> Đã uống
+              </button>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    async function toggleIntake(id, btn) {
+      try {
+        const form = new FormData();
+        form.append('status', 'taken');
+        await fetch(`/api/v1/schedules/${id}/toggle`, { method: 'POST', body: form });
+        btn.classList.remove('text-teal-700', 'border-teal-600');
+        btn.classList.add('bg-teal-600', 'text-white');
+        btn.innerHTML = `<i class="fa-solid fa-check mr-1"></i> Xong`;
+      } catch (e) {
+        alert("Lỗi lưu nhật ký: " + e.message);
+      }
+    }
+
+    function speakSchedule() {
+      if (!schedulesList || schedulesList.length === 0) {
+        speakText("Hiện tại chưa có thuốc nào trong lịch uống hôm nay.");
+        return;
+      }
+      let text = "Lịch uống thuốc hôm nay của bác gồm có: ";
+      schedulesList.forEach(s => {
+        const timeName = s.time_slot === 'morning' ? 'buổi sáng' : s.time_slot === 'noon' ? 'buổi trưa' : s.time_slot === 'afternoon' ? 'buổi chiều' : 'buổi tối';
+        text += `${timeName} lúc ${s.remind_at}, uống ${s.medicine_name}, ${s.dosage || '1 viên'}. `;
+      });
+      speakText(text);
+    }
+
+    // ==========================================
+    // RAG PLAYGROUND
+    // ==========================================
+    async function executeRagQuery() {
+      const q = document.getElementById('ragQueryInput').value.trim();
+      if (!q) return;
+
+      const area = document.getElementById('ragResultArea');
+      area.classList.remove('hidden');
+      document.getElementById('ragAnswerText').innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Đang truy vấn tài liệu y khoa...`;
+      document.getElementById('ragSourcesList').innerHTML = '';
+
+      try {
+        const res = await fetch('/api/v1/explain', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ query: q })
+        });
+        const data = await res.json();
+        
+        const card = document.getElementById('ragResultCard');
+        const badge = document.getElementById('ragGroundedBadge');
+        
+        if (data.grounded) {
+          card.className = "p-6 rounded-2xl border-2 border-teal-200 bg-teal-50/40";
+          badge.className = "text-sm font-bold px-3 py-1 rounded-full bg-teal-600 text-white";
+          badge.innerHTML = `<i class="fa-solid fa-check mr-1"></i> Đã kiểm chứng tài liệu y khoa`;
+        } else {
+          card.className = "p-6 rounded-2xl border-2 border-amber-300 bg-amber-50/50";
+          badge.className = "text-sm font-bold px-3 py-1 rounded-full bg-amber-600 text-white";
+          badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Ngoài tài liệu kiểm chứng`;
+        }
+
+        document.getElementById('ragAnswerText').textContent = data.answer;
+        
+        const srcList = document.getElementById('ragSourcesList');
+        if (data.sources && data.sources.length > 0) {
+          srcList.innerHTML = data.sources.map(s => `
+            <div class="bg-white p-3 rounded-xl border border-gray-200 text-sm">
+              <strong class="text-teal-900 block mb-1">📖 ${s.title}</strong>
+              <p class="text-gray-600 text-xs italic">"${s.chunk}"</p>
+            </div>
+          `).join('');
+        } else {
+          srcList.innerHTML = `<div class="text-xs text-gray-500 italic">Không có trích đoạn nguồn phù hợp.</div>`;
+        }
+
+      } catch (err) {
+        document.getElementById('ragAnswerText').textContent = "Lỗi khi gọi RAG: " + err.message;
+      }
+    }
+
+    function testQuickRag(query) {
+      document.getElementById('ragQueryInput').value = query;
+      executeRagQuery();
+    }
+
+    function speakRagAnswer() {
+      const text = document.getElementById('ragAnswerText').textContent;
+      if (text) speakText(text);
+    }
+
+    // ==========================================
+    // LỊCH SỬ QUÉT
+    // ==========================================
+    async function loadHistory() {
+      const div = document.getElementById('historyListContainer');
+      div.innerHTML = `<div class="text-center py-6 text-gray-500"><i class="fa-solid fa-spinner animate-spin mr-2"></i>Đang tải...</div>`;
+      try {
+        const res = await fetch('/api/v1/scans');
+        const list = await res.json();
+        if (!list || list.length === 0) {
+          div.innerHTML = `<div class="text-center py-8 text-gray-500">Chưa có lần quét nào được lưu.</div>`;
+          return;
+        }
+
+        div.innerHTML = list.map(item => {
+          const typeName = item.doc_type === 'prescription' ? '💊 Đơn thuốc' : '🧪 Phiếu xét nghiệm';
+          const itemsCount = item.result && item.result.items ? item.result.items.length : 0;
+          return `
+            <div class="p-4 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between hover:border-teal-500 transition">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-extrabold text-teal-900 text-lg">${typeName}</span>
+                  <span class="text-xs text-gray-400">ID: ${item.id.slice(0, 8)}...</span>
+                </div>
+                <div class="text-sm text-gray-600 mt-1">
+                  Đã đọc <strong>${itemsCount}</strong> mục • Ngày: ${new Date(item.created_at).toLocaleString('vi-VN')}
+                </div>
+              </div>
+              <button onclick="viewHistoryItem('${item.id}')" class="px-4 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-sm rounded-xl transition">
+                Xem lại
+              </button>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        div.innerHTML = `<div class="text-red-500 text-center py-4">Lỗi tải lịch sử: ${e.message}</div>`;
+      }
+    }
+
+    async function viewHistoryItem(id) {
+      try {
+        const res = await fetch(`/api/v1/scans/${id}`);
+        const data = await res.json();
+        if (data.result) {
+          switchTab('scan');
+          displayScanResult(data.result);
+        }
+      } catch (e) {
+        alert("Lỗi: " + e.message);
+      }
+    }
+
+    // Khởi động
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchRagStatus();
+      loadSample('prescription');
+    });
+  </script>
+</body>
+</html>
