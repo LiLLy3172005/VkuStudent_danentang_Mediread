@@ -401,31 +401,37 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {doc.explanations.map((exp, idx) => (
-              <div
-                key={idx}
-                className="bg-white border-2 border-amber-200 rounded-3xl p-6 shadow-card space-y-3"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-2 font-black text-lg text-amber-900">
-                    <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-                    <span>{exp.indicator_name}</span>
+            {doc.explanations.map((exp: any, idx) => {
+              const expTitle = exp.indicator_name || exp.name || 'Chỉ số xét nghiệm';
+              const expBody = exp.explanation || exp.content || '';
+              const citationsList = (exp.citations || []).filter((c: any) => c && c.title);
+
+              return (
+                <div
+                  key={idx}
+                  className="bg-white border-2 border-amber-200 rounded-3xl p-6 shadow-card space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-2 font-black text-lg text-amber-900">
+                      <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                      <span>{expTitle}</span>
+                    </div>
+                    <TTSPlayer text={expBody} label="Đọc đoạn này" />
                   </div>
-                  <TTSPlayer text={exp.explanation} label="Đọc đoạn này" />
+
+                  <p className="text-lg text-[#14283A] leading-relaxed font-medium">
+                    {expBody}
+                  </p>
+
+                  {citationsList.length > 0 && (
+                    <div className="pt-2 border-t border-gray-100 flex items-center gap-2 text-xs text-[#5B6B77]">
+                      <Info className="w-4 h-4 text-[#0B6B73]" />
+                      <span>Nguồn trích dẫn: {citationsList.map((c: any) => c.title).join(', ')}</span>
+                    </div>
+                  )}
                 </div>
-
-                <p className="text-lg text-[#14283A] leading-relaxed font-medium">
-                  {exp.explanation}
-                </p>
-
-                {exp.citations && exp.citations.length > 0 && (
-                  <div className="pt-2 border-t border-gray-100 flex items-center gap-2 text-xs text-[#5B6B77]">
-                    <Info className="w-4 h-4 text-[#0B6B73]" />
-                    <span>Nguồn trích dẫn: {exp.citations.map((c) => c.title).join(', ')}</span>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

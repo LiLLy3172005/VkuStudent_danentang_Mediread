@@ -94,20 +94,22 @@ class DocumentProcessor:
         # Step 7: Explanations for abnormal indicators
         explanations = []
         for lab in normalized_labs:
-            if lab.flag in ("high", "low") or lab.quality_status == "needs_review":
+            flag_str = str(lab.flag.value if hasattr(lab.flag, "value") else lab.flag).lower()
+            quality_str = str(lab.quality_status.value if hasattr(lab.quality_status, "value") else lab.quality_status).lower()
+            if flag_str in ("high", "low") or quality_str == "needs_review":
                 exp = self.rag_explainer.explain_item(
                     name=lab.name,
                     value=str(lab.value_num if lab.value_num is not None else lab.value_raw),
                     unit=lab.unit_normalized or lab.unit_raw,
                     ref_range=lab.reference_range_used or lab.reference_range_raw,
-                    flag=lab.flag.value,
+                    flag=flag_str,
                 )
                 explanations.append({
                     "indicator_name": lab.name,
                     "explanation": exp["content"],
                     "citations": exp["citations"],
                     "disclaimer": exp["disclaimer"],
-                    "flag": lab.flag.value,
+                    "flag": flag_str,
                 })
 
         # Step 8: Document Status Decision

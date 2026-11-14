@@ -91,14 +91,15 @@ class RagExplainer:
             from langchain_community.embeddings import HuggingFaceEmbeddings
 
             emb = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_name="bkai-foundation-models/vietnamese-bi-encoder",
                 model_kwargs={"device": "cpu"},
+                encode_kwargs={"normalize_embeddings": True},
             )
             self._db = Chroma(
                 persist_directory=self.chroma_dir,
                 embedding_function=emb,
-                collection_metadata={"hnsw:space": "cosine"},
             )
+            logger.info("ChromaDB vector store connected with 768-dim Vietnamese bi-encoder embeddings.")
         except Exception as exc:
             self._db_failed = True
             logger.warning("ChromaDB vector search unavailable: %s. Using internal clinical knowledge base.", exc)
