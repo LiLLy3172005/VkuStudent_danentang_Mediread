@@ -15,8 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
-      <body className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#14283A]">
+    <html lang="vi" suppressHydrationWarning>
+      <body suppressHydrationWarning className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#14283A]">
         <ElderlyPreferencesProvider>
           <Header />
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">

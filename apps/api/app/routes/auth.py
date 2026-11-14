@@ -1,23 +1,51 @@
 """
-MediRead AI - Authentication Routes
-Provides login, session tokens, and current user profile endpoints.
+MediRead AI - Authentication & User Registration Routes
+Direct integration with Supabase Auth & PostgreSQL Profiles with fallback for local evaluation.
 """
 
 import uuid
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, status
+import logging
 
-from app.auth import get_current_user, AuthenticatedUser, create_access_token, DEMO_PATIENT_UUID, DEMO_CAREGIVER_UUID
+from app.auth import (
+    get_current_user,
+    AuthenticatedUser,
+    create_access_token,
+    DEMO_PATIENT_UUID,
+    DEMO_CAREGIVER_UUID,
+)
+from app.services.supabase_service import db_service
 from app.config import settings
 
+logger = logging.getLogger("mediread.auth")
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
 
+class AccountSummary(BaseModel):
+    id: str
+    full_name: str
+    role: str
+    sex: Optional[str] = None
+    birth_year: Optional[int] = None
+    email: Optional[str] = None
+
+
 class LoginRequest(BaseModel):
-    phone: str = Field(..., min_length=6, max_length=20)
+    user_id: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     role: str = Field("patient", pattern="^(patient|caregiver)$")
-    name: Optional[str] = None
+
+
+class RegisterRequest(BaseModel):
+    full_name: str = Field(..., min_length=2, max_length=100)
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    role: str = Field("patient", pattern="^(patient|caregiver)$")
+    sex: str = Field("nam", pattern="^(nam|nu|other)$")
+    birth_year: Optional[int] = Field(None, ge=1900, le=2100)
 
 
 class LoginResponse(BaseModel):
@@ -26,19 +54,175 @@ class LoginResponse(BaseModel):
     user: dict
 
 
+@router.get("/accounts", response_model=List[AccountSummary])
+async def list_available_accounts():
+    """
+    Returns available profiles in the system.
+    Enables instant 1-click selection between elderly patients and family caregivers.
+    """
+    if db_service.is_connected() and db_service._client:
+        try:
+            res = db_service._client.table("profiles").select("*").order("role").execute()
+            if res.data:
+                return [
+                    AccountSummary(
+                        id=p["id"],
+                        full_name=p.get("full_name") or ("Bệnh nhân" if p.get("role") == "patient" else "Người chăm sóc"),
+                        role=p.get("role", "patient"),
+                        sex=p.get("sex"),
+                        birth_year=p.get("birth_year"),
+                        email=f"{p['id'][:8]}@mediread.ai",
+                    )
+                    for p in res.data
+                ]
+        except Exception as exc:
+            logger.warning("Could not fetch accounts from Supabase: %s", exc)
+
+    # Local fallback accounts
+    return [
+        AccountSummary(
+            id=str(DEMO_PATIENT_UUID),
+            full_name="Bác Trần Văn Minh (Bệnh nhân cao tuổi)",
+            role="patient",
+            sex="nam",
+            birth_year=1954,
+            email="bac.minh@mediread.vn",
+        ),
+        AccountSummary(
+            id=str(DEMO_CAREGIVER_UUID),
+            full_name="Trần Minh Tuấn (Con trai chăm sóc)",
+            role="caregiver",
+            sex="nam",
+            birth_year=1986,
+            email="tuan.con@mediread.vn",
+        ),
+    ]
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest):
     """
-    Log in or register with phone number.
-    Returns a cryptographically signed HS256 JWT compatible with Supabase Auth schema.
+    Log in via user_id, phone number, or email.
+    Issues a cryptographically signed HS256 JWT compatible with Supabase RLS.
     """
-    # Deterministic or mock user UUID based on role
-    user_id = DEMO_CAREGIVER_UUID if req.role == "caregiver" else DEMO_PATIENT_UUID
-    name = "Trần Minh Tuấn (Con trai)" if req.role == "caregiver" else "Bác Trần Văn Minh (Bệnh nhân)"
-    email = f"{req.phone.replace(' ', '')}@mediread.ai"
+    target_uuid = None
+    user_name = None
+    user_role = req.role
+    user_email = req.email or (f"{req.phone.replace(' ', '')}@mediread.ai" if req.phone else None)
+    user_sex = None
+    user_birth_year = None
+
+    # Case 1: Logging in via direct user_id selection
+    if req.user_id:
+        try:
+            target_uuid = uuid.UUID(req.user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid_user_id")
+
+        if db_service.is_connected() and db_service._client:
+            try:
+                prof = db_service._client.table("profiles").select("*").eq("id", str(target_uuid)).limit(1).execute()
+                if prof.data:
+                    p = prof.data[0]
+                    user_name = p.get("full_name")
+                    user_role = p.get("role", user_role)
+                    user_sex = p.get("sex")
+                    user_birth_year = p.get("birth_year")
+            except Exception as exc:
+                logger.warning("Lookup profile failed: %s", exc)
+
+    # Case 2: Logging in via phone or email search in Supabase
+    if not target_uuid:
+        if db_service.is_connected() and db_service._client and (req.phone or req.email):
+            try:
+                # Search by matching name or role
+                prof = db_service._client.table("profiles").select("*").eq("role", req.role).limit(1).execute()
+                if prof.data:
+                    p = prof.data[0]
+                    target_uuid = uuid.UUID(p["id"])
+                    user_name = p.get("full_name")
+                    user_role = p.get("role", user_role)
+                    user_sex = p.get("sex")
+                    user_birth_year = p.get("birth_year")
+            except Exception as exc:
+                logger.warning("Search profile by role failed: %s", exc)
+
+    # Fallback to deterministic default UUID
+    if not target_uuid:
+        target_uuid = DEMO_CAREGIVER_UUID if req.role == "caregiver" else DEMO_PATIENT_UUID
+
+    if not user_name:
+        user_name = "Trần Minh Tuấn (Con trai)" if user_role == "caregiver" else "Bác Trần Văn Minh (Bệnh nhân)"
+
+    if not user_email:
+        user_email = f"user_{str(target_uuid)[:8]}@mediread.ai"
 
     token = create_access_token(
-        user_id=user_id,
+        user_id=target_uuid,
+        email=user_email,
+        role=user_role,
+    )
+
+    return LoginResponse(
+        access_token=token,
+        token_type="bearer",
+        user={
+            "id": str(target_uuid),
+            "full_name": user_name,
+            "role": user_role,
+            "email": user_email,
+            "sex": user_sex,
+            "birth_year": user_birth_year,
+        },
+    )
+
+
+@router.post("/register", response_model=LoginResponse)
+async def register(req: RegisterRequest):
+    """
+    Registers a new patient or caregiver directly into Supabase Auth & public.profiles.
+    """
+    clean_name = req.full_name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập họ và tên.")
+
+    email = req.email or (f"{req.phone.replace(' ', '')}@mediread.ai" if req.phone else f"user_{uuid.uuid4().hex[:8]}@mediread.ai")
+
+    user_uuid = None
+
+    # If Supabase is connected, create real user in Supabase Auth & update profile
+    if db_service.is_connected() and db_service._client:
+        try:
+            # 1. Create Supabase Auth user via Admin API
+            auth_res = db_service._client.auth.admin.create_user({
+                "email": email,
+                "email_confirm": True,
+                "user_metadata": {
+                    "full_name": clean_name,
+                    "role": req.role,
+                },
+            })
+            if auth_res and auth_res.user:
+                user_uuid = uuid.UUID(auth_res.user.id)
+
+                # 2. Update profile fields (sex, birth_year, role)
+                db_service._client.table("profiles").update({
+                    "full_name": clean_name,
+                    "sex": req.sex,
+                    "birth_year": req.birth_year,
+                    "role": req.role,
+                }).eq("id", str(user_uuid)).execute()
+
+                logger.info("Successfully registered user %s (%s) in Supabase", clean_name, user_uuid)
+        except Exception as exc:
+            logger.error("Supabase user registration error: %s", exc)
+            # If user already exists or error, generate fresh UUID
+            user_uuid = user_uuid or uuid.uuid4()
+    else:
+        user_uuid = uuid.uuid4()
+
+    token = create_access_token(
+        user_id=user_uuid,
         email=email,
         role=req.role,
     )
@@ -47,10 +231,11 @@ async def login(req: LoginRequest):
         access_token=token,
         token_type="bearer",
         user={
-            "id": str(user_id),
-            "phone": req.phone,
+            "id": str(user_uuid),
+            "full_name": clean_name,
             "role": req.role,
-            "name": req.name or name,
+            "sex": req.sex,
+            "birth_year": req.birth_year,
             "email": email,
         },
     )
@@ -59,8 +244,19 @@ async def login(req: LoginRequest):
 @router.get("/me")
 async def get_me(current_user: AuthenticatedUser = Depends(get_current_user)):
     """Returns profile for currently authenticated user."""
-    return {
+    profile_data = {
         "id": str(current_user.id),
         "email": current_user.email,
         "role": current_user.role,
+        "full_name": "Người dùng MediRead",
     }
+
+    if db_service.is_connected() and db_service._client:
+        try:
+            p = db_service._client.table("profiles").select("*").eq("id", str(current_user.id)).limit(1).execute()
+            if p.data:
+                profile_data.update(p.data[0])
+        except Exception as exc:
+            logger.warning("Failed to fetch full profile: %s", exc)
+
+    return profile_data

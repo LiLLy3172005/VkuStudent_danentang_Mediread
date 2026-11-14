@@ -4,6 +4,7 @@ import React from 'react';
 import { Settings, Volume2, Type, Sliders, User, ShieldCheck } from 'lucide-react';
 import { useElderlyPreferences } from '../../components/ElderlyPreferencesContext';
 import { TTSPlayer } from '../../components/Footer';
+import { api } from '../../lib/api';
 
 export default function SettingsPage() {
   const { fontScale, setFontScale, ttsRate, setTtsRate, ttsEnabled, setTtsEnabled } = useElderlyPreferences();
@@ -90,27 +91,43 @@ export default function SettingsPage() {
 
       {/* User Profile Summary */}
       <div className="bg-white border-2 border-[#DDEEEB] rounded-3xl p-6 sm:p-8 shadow-card space-y-4">
-        <div className="flex items-center gap-3 text-xl font-black text-[#073F46]">
-          <User className="w-6 h-6 text-[#0B6B73]" />
-          <h2>3. Thông tin tài khoản người bệnh</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 text-xl font-black text-[#073F46]">
+            <User className="w-6 h-6 text-[#0B6B73]" />
+            <h2>3. Thông tin tài khoản người dùng</h2>
+          </div>
+          <a
+            href="/login"
+            className="text-sm font-bold text-[#0B6B73] hover:underline"
+          >
+            Đổi tài khoản
+          </a>
         </div>
 
         <div className="space-y-3 divide-y divide-gray-100 text-base">
           <div className="flex justify-between py-2">
             <span className="text-[#5B6B77]">Họ và tên:</span>
-            <span className="font-extrabold text-[#073F46]">Bác Nguyễn Văn An</span>
+            <span className="font-extrabold text-[#073F46]">
+              {api.getCurrentUser()?.full_name || 'Bác Trần Văn Minh'}
+            </span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-[#5B6B77]">Năm sinh:</span>
-            <span className="font-bold">1955 (71 tuổi)</span>
+            <span className="font-bold">
+              {api.getCurrentUser()?.birth_year ? `${api.getCurrentUser()?.birth_year} (${new Date().getFullYear() - (api.getCurrentUser()?.birth_year || 0)} tuổi)` : '1954 (72 tuổi)'}
+            </span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-[#5B6B77]">Giới tính:</span>
-            <span className="font-bold">Nam</span>
+            <span className="font-bold uppercase">
+              {api.getCurrentUser()?.sex || 'Nam'}
+            </span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-[#5B6B77]">Vai trò tài khoản:</span>
-            <span className="font-bold text-[#0B6B73]">Người bệnh (Chính chủ)</span>
+            <span className="font-bold text-[#0B6B73]">
+              {api.getCurrentUser()?.role === 'caregiver' ? 'Người thân chăm sóc' : 'Người bệnh (Chính chủ)'}
+            </span>
           </div>
         </div>
       </div>

@@ -1,14 +1,45 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Camera, History, TrendingUp, Clock, Users, Settings, Volume2, ZoomIn, ZoomOut, HeartPulse } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  Camera,
+  History,
+  TrendingUp,
+  Clock,
+  Users,
+  Settings,
+  Volume2,
+  ZoomIn,
+  ZoomOut,
+  HeartPulse,
+  UserCheck,
+  LogOut,
+  User,
+} from 'lucide-react';
 import { useElderlyPreferences } from './ElderlyPreferencesContext';
+import { api } from '../lib/api';
+import { UserProfile } from '../lib/types';
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { fontScale, setFontScale, ttsEnabled, setTtsEnabled, stopSpeech, isSpeaking } = useElderlyPreferences();
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const user = api.getCurrentUser();
+    setCurrentUser(user);
+  }, [pathname]);
+
+  const handleLogout = () => {
+    if (confirm('Bác/Bạn có chắc muốn đăng xuất tài khoản này?')) {
+      api.logout();
+      setCurrentUser(null);
+      router.push('/login');
+    }
+  };
 
   const navLinks = [
     { href: '/', label: 'Trang chủ', icon: HeartPulse },
@@ -102,6 +133,47 @@ export function Header() {
               );
             })}
           </nav>
+
+          {/* User Account / Auth Section */}
+          <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
+            {currentUser ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-gray-50 transition elderly-tap-target"
+                  title="Nhấp để đổi tài khoản"
+                >
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#073F46] to-[#0B6B73] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                    {currentUser.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="hidden xl:block text-left">
+                    <p className="text-xs font-bold text-[#073F46] leading-tight line-clamp-1 max-w-[130px]">
+                      {currentUser.full_name}
+                    </p>
+                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-[#DDEEEB] text-[#073F46]">
+                      {currentUser.role === 'caregiver' ? 'Chăm sóc' : 'Bệnh nhân'}
+                    </span>
+                  </div>
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-rose-600 rounded-lg transition"
+                  title="Đăng xuất"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 bg-[#0B6B73] text-white px-3.5 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-[#073F46] transition elderly-tap-target"
+              >
+                <UserCheck className="w-4 h-4" />
+                <span className="hidden sm:inline">Đăng nhập / Đăng ký</span>
+                <span className="sm:hidden">Tài khoản</span>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </header>
