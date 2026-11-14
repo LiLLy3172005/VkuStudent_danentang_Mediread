@@ -287,7 +287,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
               <tbody className="divide-y divide-gray-100 text-base font-medium">
                 {doc.lab_results.map((item: any, idx) => {
                   // 1. Resolve Value (Supports float numbers and qualitative text like 'neg')
-                  const rawVal = item.value_text || item.value_raw;
+                  const rawVal = item.value_text || item.value_raw || item.value;
                   let displayVal = '-';
                   let isQualitativeNeg = false;
                   let isQualitativePos = false;
@@ -311,14 +311,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   }
 
                   // 2. Resolve Unit (Strip machine analyzer names)
-                  let displayUnit = item.unit || '-';
-                  if (/mission|bs200|bs-200|analyzer|mayxn/i.test(displayUnit)) {
+                  let displayUnit = item.unit ? String(item.unit).trim() : '-';
+                  if (!displayUnit || /mission|bs200|bs-200|analyzer|mayxn/i.test(displayUnit)) {
                     displayUnit = '-';
                   }
 
                   // 3. Resolve Reference Range
                   let refRange = item.ref_text || item.reference_range_used || item.reference_range_raw;
-                  if (!refRange || refRange === 'Không in') {
+                  if (!refRange || !String(refRange).trim() || refRange === 'Không in') {
                     if (isQualitativeNeg || isQualitativePos) {
                       refRange = 'Âm tính (-)';
                     } else if (item.ref_low !== null && item.ref_high !== null && item.ref_low !== undefined && item.ref_high !== undefined) {

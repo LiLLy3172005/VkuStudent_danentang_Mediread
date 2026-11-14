@@ -95,8 +95,8 @@ def parse_numeric_value(s: str) -> Optional[float]:
 def clean_unit(u: str) -> str:
     """Normalizes OCR unit errors: 'umo1/L' -> 'µmol/L', '109/L' -> '10^9/L', filters machine models."""
     s = str(u or "").strip(" .,;:")
-    # Strip machine analyzer models that leaked into unit column (e.g. 'Mission U120', 'BS200E')
-    if re.search(r"(?i)\b(mission|bs-?200|cobas|architect|sysmex|mindray|mayxn)\b", s):
+    # Strip machine analyzer models that leaked into unit column (e.g. 'Mission U120', 'MissionU120', 'BS200E')
+    if re.search(r"(?i)(mission|bs-?200|cobas|architect|sysmex|mindray|mayxn)", s):
         return ""
     s = s.replace("mo1", "mol").replace("pumol", "µmol").replace("umol", "µmol")
     s = re.sub(r"(?<![\d^.])(10)(3|6|9|12)(?=\s*/)", r"\1^\2", s)

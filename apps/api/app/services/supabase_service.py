@@ -175,7 +175,10 @@ class SupabaseService:
             try:
                 self._client.table("documents").update(update_payload).eq("id", doc_id_str).execute()
                 # Insert lab items
+                flag_map = {"NORMAL": "N", "HIGH": "H", "LOW": "L", "N": "N", "H": "H", "L": "L"}
                 for lab in results.get("lab_results", []):
+                    raw_flag_str = str(lab.get("flag") or "").upper()
+                    db_flag = flag_map.get(raw_flag_str)
                     self._client.table("lab_results").insert({
                         "user_id": user_str,
                         "document_id": doc_id_str,
@@ -187,8 +190,8 @@ class SupabaseService:
                         "ref_low": lab.get("ref_low"),
                         "ref_high": lab.get("ref_high"),
                         "ref_text": lab.get("reference_range_used"),
-                        "flag": (lab.get("flag") or "").upper() if (lab.get("flag") or "").upper() in ("H", "L", "N") else None,
-                        "flag_note": lab.get("flag_note") or (lab.get("flag") if (lab.get("flag") or "").upper() not in ("H", "L", "N") else None),
+                        "flag": db_flag,
+                        "flag_note": lab.get("flag_note") or (raw_flag_str if not db_flag else None),
                     }).execute()
             except Exception as exc:
                 logger.error("Supabase save worker results failed: %s", exc)
