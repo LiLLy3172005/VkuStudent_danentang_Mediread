@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { HeartPulse, Lock, Phone, UserCheck, ArrowRight, ShieldCheck } from 'lucide-react';
 import { TTSPlayer } from '../../components/Footer';
+import { api } from '../../lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,14 +27,19 @@ export default function LoginPage() {
     }, 600);
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      localStorage.setItem('mediread_jwt_token', 'demo_jwt_token_elderly_patient');
+    try {
+      await api.login(phone, role);
       router.push('/');
-    }, 600);
+    } catch {
+      // Graceful fallback for offline demo
+      localStorage.setItem('mediread_jwt_token', role === 'caregiver' ? 'demo_caregiver' : 'demo_patient');
+      router.push('/');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

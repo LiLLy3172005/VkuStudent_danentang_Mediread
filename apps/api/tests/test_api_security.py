@@ -145,6 +145,31 @@ class TestApiSecurity(unittest.TestCase):
         )
         self.assertEqual(res_patient_accept.status_code, 200)
 
+    def test_demo_tokens_allowed_in_dev(self):
+        # 1. Plain demo token should not crash with 'Not enough segments'
+        res = self.client.get("/api/v1/documents", headers={"Authorization": "Bearer demo_token"})
+        self.assertEqual(res.status_code, 200)
+
+        # 2. Caregiver demo token
+        res_caregiver = self.client.get("/api/v1/documents", headers={"Authorization": "Bearer demo_caregiver"})
+        self.assertEqual(res_caregiver.status_code, 200)
+
+    def test_auth_login_endpoint(self):
+        # 1. Login with phone number
+        res = self.client.post(
+            "/api/v1/auth/login",
+            json={"phone": "0912345678", "role": "patient"},
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("access_token", data)
+        token = data["access_token"]
+
+        # 2. Use the minted JWT to query /auth/me
+        res_me = self.client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res_me.status_code, 200)
+        self.assertEqual(res_me.json()["role"], "patient")
+
 
 if __name__ == "__main__":
     unittest.main()

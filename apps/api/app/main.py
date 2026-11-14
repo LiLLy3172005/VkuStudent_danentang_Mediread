@@ -21,7 +21,7 @@ if _WORKER_PATH.is_dir() and str(_WORKER_PATH) not in sys.path:
 
 from app.config import settings
 from app.security import limiter
-from app.routes import documents, medical, care_links, health
+from app.routes import auth, documents, medical, care_links, health
 
 # Structured Logging Configuration
 logging.basicConfig(
@@ -108,6 +108,7 @@ async def security_and_timing_middleware(request: Request, call_next):
 
 # 4. Include Routers
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(medical.router)
 app.include_router(care_links.router)
