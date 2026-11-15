@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "MediRead AI",
+    "slug": "mediread-ai",
+    "scheme": "mediread",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#0B6B73",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.mediread.mobile"
+    },
+    "android": {
+      "package": "ai.mediread.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B6B73",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Ứng dụng cần quyền sử dụng máy ảnh để chụp đơn thuốc và phiếu xét nghiệm."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ứng dụng cần quyền truy cập thư viện ảnh để tải lên phiếu khám.",
+          "cameraPermission": "Ứng dụng cần quyền sử dụng máy ảnh để chụp tài liệu y tế."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}
