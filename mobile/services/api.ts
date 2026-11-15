@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { DocumentDetail, DocumentSummary, Profile, CareLink } from '../types';
 
@@ -177,16 +178,8 @@ class ApiService {
   }
 
   async uploadDocument(fileUri: string, fileName: string, docType: 'lab_report' | 'prescription' = 'lab_report'): Promise<{ document_id: string; status: string; message: string }> {
-    const formData = new FormData();
-    const type = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    
-    // React Native FormData file object format
-    formData.append('file', {
-      uri: fileUri,
-      name: fileName,
-      type: type,
-    } as any);
-    formData.append('doc_type', docType);
+    const type = fileName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+    const uploadUrl = `${this.baseUrl}/api/v1/documents/upload`;
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
@@ -195,22 +188,52 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.cachedToken}`;
     }
 
-    const res = await fetch(`${this.baseUrl}/api/v1/documents/upload`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
+    if (Platform.OS !== 'web') {
+      const res = await FileSystem.uploadAsync(uploadUrl, fileUri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'file',
+        mimeType: type,
+        parameters: {
+          doc_type: docType,
+        },
+        headers,
+      });
 
-    if (!res.ok) {
-      let errText = `Upload error: ${res.status}`;
-      try {
-        const errJson = await res.json();
-        errText = errJson.detail || errText;
-      } catch {}
-      throw new Error(errText);
+      if (res.status < 200 || res.status >= 300) {
+        let errText = `Upload error: ${res.status}`;
+        try {
+          const errJson = JSON.parse(res.body);
+          errText = errJson.detail || errJson.message || errText;
+        } catch {}
+        throw new Error(errText);
+      }
+
+      return JSON.parse(res.body);
+    } else {
+      const formData = new FormData();
+      const fileRes = await fetch(fileUri);
+      const blob = await fileRes.blob();
+      formData.append('file', blob, fileName);
+      formData.append('doc_type', docType);
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let errText = `Upload error: ${res.status}`;
+        try {
+          const errJson = await res.json();
+          errText = errJson.detail || errText;
+        } catch {}
+        throw new Error(errText);
+      }
+
+      return res.json();
     }
-
-    return res.json();
   }
 
   async confirmDocument(id: string, confirmedData: any): Promise<any> {
