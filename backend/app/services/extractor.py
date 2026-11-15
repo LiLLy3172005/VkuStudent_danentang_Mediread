@@ -5,12 +5,9 @@ import time
 from typing import Tuple, List, Dict, Any
 from pathlib import Path
 
-# Các khóa API mặc định từ cấu hình đồ án
-DEFAULT_API_KEYS = []
-
-# Ưu tiên lấy từ biến môi trường nếu có
-ENV_KEY = os.getenv("GEMINI_API_KEY")
-ACTIVE_KEYS = [ENV_KEY] if ENV_KEY else list(DEFAULT_API_KEYS)
+# Khóa API lấy từ biến môi trường
+ENV_KEYS_RAW = os.getenv("GEMINI_API_KEYS", "") or os.getenv("GEMINI_API_KEY", "")
+ACTIVE_KEYS = [k.strip() for k in ENV_KEYS_RAW.split(",") if k.strip()]
 current_key_idx = 0
 
 PROMPT_EXTRACTION = """Bạn là trợ lý AI chuyên số hóa hồ sơ y tế (đơn thuốc hoặc phiếu xét nghiệm).
