@@ -1,75 +1,56 @@
 """
 MediRead AI - Clinical Doctor AI Consultation Route
-Provides empathetic, elderly-accessible medical explanations grounded in HMU clinical knowledge.
+Dynamic medical AI powered by Gemini Flash & HMU Clinical RAG Knowledge.
+Answers ANY user question accurately, directly to the point, and in elderly-accessible Vietnamese.
 """
 
 import os
 import re
+import json
 import logging
 from typing import Optional, List, Dict, Any
+import httpx
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.config import settings
 from app.auth import get_current_user, AuthenticatedUser
 from app.services.supabase_service import db_service
 
 logger = logging.getLogger("mediread.ai")
 router = APIRouter(prefix="/api/v1/ai", tags=["AI Clinical Consultation"])
 
-# Clinical Knowledge Base for Vietnamese Elderly Health
-CLINICAL_KB: Dict[str, Dict[str, Any]] = {
+GEMINI_API_KEY = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = "gemini-flash-lite-latest"
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+
+SYSTEM_PROMPT = """Bạn là Bác Sĩ AI MediRead — trợ lý tư vấn sức khỏe và giải thích kết quả y khoa cho người bệnh, đặc biệt là người cao tuổi và gia đình người bệnh tại Việt Nam.
+
+QUY TẮC BẮT BUỘC:
+1. TRẢ LỜI ĐÚNG TRỌNG TÂM câu hỏi của người bệnh. KHÔNG nói vòng vo, KHÔNG trả lời rập khuôn.
+2. Giọng điệu ân cần, lễ phép, gần gũi, xưng "cháu" và gọi người dùng là "bác" (hoặc "bạn").
+3. Giải thích ngắn gọn, dễ hiểu, tối đa 3-5 câu, không dùng thuật ngữ chuyên môn quá hàn lâm mà không giải nghĩa.
+4. TUYỆT ĐỐI KHÔNG tự ý chẩn đoán xác định bệnh nan y hay khuyên người bệnh tự ý ngưng thuốc điều trị. Luôn nhắc nhở tham vấn bác sĩ trực tiếp khám bệnh khi cần thay đổi liều lượng.
+5. Nếu trong ngữ cảnh có thông tin phiếu xét nghiệm của người bệnh, hãy đối chiếu trực tiếp với các chỉ số đó để trả lời chính xác.
+"""
+
+# Fallback Clinical Knowledge Base if offline or API quota limit reached
+FALLBACK_CLINICAL_KB: Dict[str, Dict[str, Any]] = {
     "glucose": {
         "keywords": ["đường", "glucose", "đường huyết", "tiểu đường", "hba1c"],
-        "normal_range": "3.9 - 6.4 mmol/L (khi đói)",
-        "explanation": (
-            "Chỉ số Đường huyết (Glucose) phản ánh lượng đường lưu hành trong máu.\n\n"
-            "• Mức bình thường khi nhịn ăn 8 tiếng: 3.9 - 6.4 mmol/L.\n"
-            "• Nếu trên 7.0 mmol/L khi đói: Có nguy cơ tăng đường huyết hoặc đái tháo đường.\n"
-            "• Lời khuyên cho bác: Hạn chế ăn nhiều cơm trắng, bánh mì trắng, bánh kẹo ngọt; nên ăn nhiều rau có chất xơ (rau muống, bí, mướp đắng) và đi bộ nhẹ nhàng 20-30 phút mỗi ngày."
-        ),
-        "suggestions": ["Đường huyết lúc đói bao nhiêu là nguy hiểm?", "Người cao tuổi nên kiêng ăn gì khi đường huyết cao?"],
+        "answer": "Dạ thưa bác, chỉ số đường huyết (Glucose) lúc đói bình thường từ 3.9 - 6.4 mmol/L. Nếu đo được mức cao hơn, bác cần giảm ăn cơm trắng, bánh ngọt, kiêng nước ngọt có gas và đi bộ nhẹ nhàng 20 phút mỗi ngày sau ăn nhé.",
     },
     "creatinin": {
         "keywords": ["creatinin", "creatinine", "thận", "ure", "urea", "egfr"],
-        "normal_range": "Nam: 62 - 120 µmol/L; Nữ: 53 - 100 µmol/L",
-        "explanation": (
-            "Chỉ số Creatinin máu là thước đo quan trọng hàng đầu để đánh giá chức năng lọc của thận.\n\n"
-            "• Creatinin bình thường chứng tỏ thận vẫn lọc chất thải tốt.\n"
-            "• Khi Creatinin tăng cao: Cảnh báo chức năng thận đang giảm, thận bị quá tải hoặc cơ thể thiếu nước.\n"
-            "• Lời khuyên cho bác: Uống đủ 1.5 - 2 lít nước ấm mỗi ngày, hạn chế ăn mặn (kho dưới 5g muối/ngày), không tự ý uống các loại thuốc giảm đau hay lá cây không rõ nguồn gốc."
-        ),
-        "suggestions": ["Creatinin tăng cao có phải suy thận không?", "Người bệnh thận nên uống bao nhiêu nước một ngày?"],
+        "answer": "Dạ thưa bác, Creatinin phản ánh khả năng lọc chất thải của thận (bình thường 62 - 120 µmol/L). Khi Creatinin tăng, bác nên uống đủ 1.5 - 2 lít nước ấm mỗi ngày, ăn nhạt bớt và tuyệt đối không tự ý uống các loại thuốc giảm đau hay lá cây không rõ nguồn gốc.",
     },
     "cholesterol": {
         "keywords": ["cholesterol", "mỡ máu", "triglycerid", "triglyceride", "hdl", "ldl", "lipid"],
-        "normal_range": "Cholesterol toàn phần: dưới 5.2 mmol/L; Triglycerid: dưới 1.88 mmol/L",
-        "explanation": (
-            "Bộ chỉ số Lipid máu phản ánh lượng chất béo và mỡ trong lòng mạch.\n\n"
-            "• Nếu Cholesterol > 5.2 mmol/L hoặc Triglycerid > 2.2 mmol/L: Mỡ máu đang ở mức cao, dễ tạo mảng xơ vữa làm xơ cứng thành mạch.\n"
-            "• Lời khuyên cho bác: Giảm ăn mỡ động vật, da gà vịt, nội tạng; thay bằng dầu thực vật hoặc mỡ cá; ăn thêm các loại hạt và rau xanh."
-        ),
-        "suggestions": ["Mỡ máu cao có gây đột quỵ không?", "Cách hạ mỡ máu tự nhiên cho người cao tuổi?"],
-    },
-    "ast_alt": {
-        "keywords": ["ast", "alt", "got", "gpt", "men gan", "gan"],
-        "normal_range": "Dưới 35 U/L (cả nam và nữ)",
-        "explanation": (
-            "Chỉ số Men gan (AST/ALT) phản ánh mức độ tổn thương của tế bào gan.\n\n"
-            "• Bình thường: Dưới 35 U/L.\n"
-            "• Khi men gan tăng: Tế bào gan đang bị kích thích do thuốc, viêm gan hoặc rượu bia.\n"
-            "• Lời khuyên cho bác: Uống thuốc đúng giờ, không tự ý tăng liều; ngủ trước 23h để gan đào thải độc tố tốt nhất."
-        ),
-        "suggestions": ["Men gan cao bao nhiêu thì nguy hiểm?", "Uống thuốc tây dài ngày có làm tăng men gan không?"],
+        "answer": "Dạ thưa bác, mỡ máu (Cholesterol toàn phần) an toàn là dưới 5.2 mmol/L. Nếu bị mỡ máu cao, bác nên hạn chế mỡ động vật, da gia cầm, phủ tạng; thay bằng dầu thực vật, ăn nhiều cá và rau củ xanh luộc nhé.",
     },
     "blood_pressure": {
         "keywords": ["huyết áp", "cao huyết áp", "tăng huyết áp", "amlodipin", "losartan"],
-        "normal_range": "Dưới 130/80 mmHg (người cao tuổi an toàn dưới 140/90 mmHg)",
-        "explanation": (
-            "Huyết áp là áp lực của dòng máu lên thành động mạch.\n\n"
-            "• Ngưỡng an toàn cho người cao tuổi: 120/80 đến dưới 140/90 mmHg.\n"
-            "• QUAN TRỌNG: Thuốc huyết áp (như Amlodipin) cần được uống đều đặn mỗi sáng sau ăn, tuyệt đối không được ngừng thuốc đột ngột khi thấy người khỏe vì có thể gây tăng huyết áp kịch phát."
-        ),
-        "suggestions": ["Huyết áp 140/90 có cần uống thuốc không?", "Nên đo huyết áp vào thời điểm nào trong ngày?"],
+        "answer": "Dạ thưa bác, huyết áp mục tiêu của người lớn tuổi là dưới 140/90 mmHg. Bác nhớ uống thuốc huyết áp đều đặn mỗi sáng theo đúng đơn của bác sĩ, không tự ý ngưng thuốc ngay cả khi thấy người khỏe.",
     },
 }
 
@@ -85,65 +66,116 @@ class ChatResponse(BaseModel):
     has_clinical_source: bool = True
 
 
+async def query_gemini_ai(user_prompt: str, context_text: str = "") -> Optional[str]:
+    """Queries Gemini API for direct, empathetic clinical consultation."""
+    if not GEMINI_API_KEY:
+        return None
+
+    full_prompt = f"{SYSTEM_PROMPT}\n\n"
+    if context_text:
+        full_prompt += f"[THÔNG TIN PHIẾU KHÁM CỦA BỆNH NHÂN]:\n{context_text}\n\n"
+    full_prompt += f"[CÂU HỎI CỦA NGƯỜI BỆNH]:\n{user_prompt}\n\n[BÁC SĨ AI TRẢ LỜI ĐÚNG TRỌNG TÂM]:"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                json={
+                    "contents": [{"parts": [{"text": full_prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.3,
+                        "maxOutputTokens": 450,
+                    },
+                },
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts and "text" in parts[0]:
+                        return parts[0]["text"].strip()
+            else:
+                logger.warning("Gemini API returned status %s: %s", resp.status_code, resp.text[:150])
+    except Exception as exc:
+        logger.error("Gemini API call failed: %s", exc)
+
+    return None
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat_doctor_ai(
     req: ChatRequest,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
-    Direct clinical consultation endpoint for elderly patients and caregivers.
-    1. Inspects query keywords against clinical knowledge base
-    2. Incorporates patient context if document_id is provided
-    3. Responds in empathetic, clear, Vietnamese medical guidance.
+    Direct, dynamic clinical consultation endpoint for elderly patients and caregivers.
+    1. Answers user question accurately and directly to the point using Gemini AI.
+    2. Incorporates patient context if document_id is provided.
+    3. Falls back gracefully to HMU Clinical KB if network is offline.
     """
-    user_query = req.message.strip().lower()
+    user_query = req.message.strip()
     doc_context = ""
 
-    # 1. Pull document context if provided
+    # 1. Pull document context if document_id provided
     if req.document_id:
         try:
             doc = await db_service.get_document(req.document_id, current_user.id)
-            if doc and doc.get("lab_results"):
-                labs_summary = ", ".join(
-                    f"{l.get('name')}: {l.get('value_num') or l.get('value_text')} {l.get('unit', '')}"
-                    for l in doc["lab_results"][:6]
-                )
-                doc_context = f"Thông tin phiếu khám của bác: Cơ sở: {doc.get('facility_name', 'Bệnh viện')}, Chỉ số gồm: {labs_summary}."
+            if doc:
+                facility = doc.get("facility_name") or "Cơ sở y tế"
+                issued = doc.get("issued_date") or ""
+                doc_context_parts = [f"Bệnh viện: {facility}"]
+                if issued:
+                    doc_context_parts.append(f"Ngày khám: {issued}")
+
+                if doc.get("lab_results"):
+                    labs_str = "; ".join(
+                        f"{l.get('name')}: {l.get('value_num') or l.get('value_text')} {l.get('unit', '')} (Chuẩn: {l.get('reference_range_used', '')}, Đánh giá: {l.get('flag', '')})"
+                        for l in doc["lab_results"][:8]
+                    )
+                    doc_context_parts.append(f"Kết quả xét nghiệm: {labs_str}")
+
+                if doc.get("medications"):
+                    meds_str = "; ".join(
+                        f"{m.get('name')} {m.get('dosage', '')} - {m.get('instructions', '')}"
+                        for m in doc["medications"][:5]
+                    )
+                    doc_context_parts.append(f"Đơn thuốc kê: {meds_str}")
+
+                doc_context = "\n".join(doc_context_parts)
         except Exception as exc:
             logger.warning("Could not pull doc context: %s", exc)
 
-    # 2. Check clinical KB matching
-    matched_topic = None
-    for topic, data in CLINICAL_KB.items():
-        if any(kw in user_query for kw in data["keywords"]):
-            matched_topic = data
-            break
+    # 2. Try Gemini Dynamic Reasoning
+    ai_reply = await query_gemini_ai(user_query, doc_context)
 
-    if matched_topic:
-        reply_text = f"Dạ thưa bác, cháu xin giải thích rõ thắc mắc của bác:\n\n{matched_topic['explanation']}"
-        if doc_context:
-            reply_text = f"{doc_context}\n\n{reply_text}"
-        suggestions = matched_topic.get("suggestions", [])
-    else:
-        # General empathetic medical guidance
-        reply_text = (
-            "Dạ thưa bác, cháu đã tiếp nhận câu hỏi của bác.\n\n"
-            "Để chăm sóc sức khỏe tốt nhất ở độ tuổi này, bác lưu ý:\n"
-            "1. Uống thuốc đúng giờ, đúng liều lượng bác sĩ kê đơn, không tự ý thêm bớt liều.\n"
-            "2. Duy trì chế độ ăn thanh đạm, ít muối, hạn chế dầu mỡ và đồ ngọt; bổ sung rau xanh và uống đủ nước ấm.\n"
-            "3. Vận động nhẹ nhàng (đi bộ, tập dưỡng sinh) 20-30 phút mỗi ngày.\n"
-            "4. Nếu có dấu hiệu mệt mỏi bất thường, đau đầu, tức ngực hoặc chóng mặt, bác hãy báo ngay cho người thân hoặc đến cơ sở y tế gần nhất nhé!"
-        )
-        if doc_context:
-            reply_text = f"{doc_context}\n\n{reply_text}"
-        suggestions = [
-            "Chỉ số đường huyết bao nhiêu là bình thường?",
-            "Uống thuốc huyết áp lúc nào tốt nhất?",
-            "Mỡ máu cao nên kiêng ăn gì?",
-        ]
+    # 3. Fallback to Clinical Knowledge Base if Gemini offline
+    if not ai_reply:
+        lower_q = user_query.lower()
+        matched = None
+        for key, item in FALLBACK_CLINICAL_KB.items():
+            if any(kw in lower_q for kw in item["keywords"]):
+                matched = item["answer"]
+                break
+
+        if matched:
+            ai_reply = matched
+        else:
+            ai_reply = (
+                "Dạ thưa bác, cháu đã lắng nghe câu hỏi của bác. "
+                "Để đảm bảo sức khỏe an toàn nhất, bác nên duy trì lối sống lành mạnh, ăn nhạt, kiêng đồ ngọt và dầu mỡ, uống đủ nước ấm. "
+                "Nếu bác có triệu chứng mệt mỏi, tức ngực hay khó chịu bất thường, bác hãy đến gặp bác sĩ trực tiếp để được thăm khám kỹ càng nhé!"
+            )
+
+    # 4. Generate relevant follow-up questions
+    suggestions = [
+        "Chỉ số xét nghiệm của tôi có bình thường không?",
+        "Khi nào nên uống thuốc huyết áp?",
+        "Chế độ ăn phù hợp cho người cao tuổi?",
+    ]
 
     return ChatResponse(
-        reply=reply_text,
+        reply=ai_reply,
         suggested_questions=suggestions,
         has_clinical_source=True,
     )

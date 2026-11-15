@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     SUPABASE_JWT_SECRET: str = "super-secret-jwt-key-min-32-chars-long"
 
+    GEMINI_API_KEY: str = ""
+
     OLLAMA_BASE_URL: str = "http://127.0.0.1:11434"
     OLLAMA_MODEL: str = "qwen2.5:7b"
 
