@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,85 +11,146 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
 import { Colors } from '../../theme/colors';
 import { HeaderBar } from '../../components/common/HeaderBar';
 import { TTSButton } from '../../components/common/TTSButton';
-import { Sparkles, Send, ShieldAlert, Bot, User } from 'lucide-react-native';
+import { api } from '../../services/api';
+import { Sparkles, Send, ShieldAlert, Bot, User, HelpCircle } from 'lucide-react-native';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'ai';
   text: string;
   timestamp: string;
+  suggestions?: string[];
 }
 
+const DEFAULT_SUGGESTIONS = [
+  'Đường huyết 7.8 có cao không?',
+  'Creatinin phản ánh chức năng thận ra sao?',
+  'Mỡ máu cao nên ăn uống thế nào?',
+  'Thuốc huyết áp nên uống lúc nào?',
+];
+
 export default function AiChatScreen() {
+  const params = useLocalSearchParams<{ documentId?: string; docType?: string; facility?: string }>();
+  const scrollViewRef = useRef<any>(null);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       sender: 'ai',
-      text: 'Cháu chào bác! Cháu là trợ lý AI y khoa của MediRead. Bác có thắc mắc gì về chỉ số xét nghiệm hoặc cách uống thuốc thì cứ hỏi cháu nhé!',
+      text: params.documentId
+        ? `Cháu chào bác! Cháu là Bác Sĩ AI của MediRead. Cháu đã nạp thông tin phiếu khám tại "${params.facility || 'cơ sở y tế'}". Bác cần cháu giải thích chỉ số xét nghiệm hoặc loại thuốc nào trên phiếu này ạ?`
+        : 'Cháu chào bác! Cháu là Bác Sĩ AI y khoa của MediRead. Bác có thắc mắc gì về chỉ số xét nghiệm sinh hóa hoặc hướng dẫn uống thuốc thì cứ hỏi cháu nhé!',
       timestamp: 'Vừa xong',
+      suggestions: DEFAULT_SUGGESTIONS,
     },
   ]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeSuggestions, setActiveSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS);
 
-  const handleSend = async () => {
-    if (!inputText.trim()) return;
+  const sendMessage = async (question: string) => {
+    const trimmed = question.trim();
+    if (!trimmed || loading) return;
 
     const userMsg: ChatMessage = {
       id: String(Date.now()),
       sender: 'user',
-      text: inputText.trim(),
+      text: trimmed,
       timestamp: 'Vừa xong',
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    const query = inputText.trim();
     setInputText('');
     setLoading(true);
 
-    // Simulated RAG clinical response based on Vietnamese clinical knowledge
-    setTimeout(() => {
-      let aiReply = 'Cháu đã ghi nhận câu hỏi của bác. Theo tài liệu y khoa chính thống, bác nên tuân thủ chế độ uống thuốc đúng giờ và tái khám theo hẹn của bác sĩ để được kiểm tra trực tiếp.';
-
-      const lower = query.toLowerCase();
-      if (lower.includes('đường') || lower.includes('glucose') || lower.includes('tiểu đường')) {
-        aiReply = 'Về chỉ số đường huyết (Glucose): Ngưỡng an toàn lúc đói thường từ 3.9 đến 6.4 mmol/L. Nếu chỉ số của bác cao hơn mức này, bác nên giảm bớt đồ ngọt, bánh kẹo, cơm trắng và đi bộ nhẹ nhàng 20 phút mỗi ngày nhé.';
-      } else if (lower.includes('cholesterol') || lower.includes('mỡ máu')) {
-        aiReply = 'Về mỡ máu (Cholesterol toàn phần): Khoảng chuẩn thường dưới 5.2 mmol/L. Khi mỡ máu tăng, bác nên hạn chế mỡ động vật, phủ tạng và đồ chiên rán, thay vào đó nên ăn nhiều rau xanh và cá.';
-      } else if (lower.includes('huyết áp')) {
-        aiReply = 'Về huyết áp: Mức huyết áp tối ưu cho người lớn tuổi là dưới 130/80 mmHg. Bác nhớ uống thuốc huyết áp đều đặn mỗi sáng theo đơn của bác sĩ, không tự ý ngưng thuốc khi thấy khỏe nhé.';
-      }
+    try {
+      // Call actual backend AI Doctor API
+      const res = await api.chatDoctorAI(trimmed, params.documentId);
+      const aiReply = res.reply || 'Cháu đã ghi nhận câu hỏi của bác. Bác nên duy trì lối sống lành mạnh và tái khám theo lịch hẹn nhé.';
+      const newSuggestions = res.suggested_questions && res.suggested_questions.length > 0
+        ? res.suggested_questions
+        : DEFAULT_SUGGESTIONS;
 
       const aiMsg: ChatMessage = {
         id: String(Date.now() + 1),
         sender: 'ai',
         text: aiReply,
         timestamp: 'Vừa xong',
+        suggestions: newSuggestions,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+      setActiveSuggestions(newSuggestions);
+    } catch {
+      // Fallback empathetic response
+      const fallbackMsg: ChatMessage = {
+        id: String(Date.now() + 1),
+        sender: 'ai',
+        text: 'Dạ thưa bác, cháu đã tiếp nhận câu hỏi. Để đảm bảo an toàn, bác nhớ uống thuốc đúng giờ theo đơn bác sĩ, ăn nhạt, kiêng ngọt và uống đủ nước ấm mỗi ngày nhé!',
+        timestamp: 'Vừa xong',
+        suggestions: DEFAULT_SUGGESTIONS,
+      };
+      setMessages((prev) => [...prev, fallbackMsg]);
+    } finally {
       setLoading(false);
-    }, 1200);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 150);
+    }
+  };
+
+  const handleSend = () => {
+    sendMessage(inputText);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <HeaderBar title="Trợ Lý Y Khoa AI" subtitle="Giải thích dễ hiểu dựa trên dược thư HMU" showBack />
+      <HeaderBar
+        title="Bác Sĩ AI MediRead"
+        subtitle={params.documentId ? 'Tư vấn theo phiếu khám đang xem' : 'Giải thích chỉ số y khoa dễ hiểu'}
+        showBack
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.chatContainer}>
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.chatContainer}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Medical Disclaimer Banner */}
           <View style={styles.disclaimerBanner}>
             <ShieldAlert size={16} color="#C2410C" />
             <Text style={styles.disclaimerText}>
-              Lưu ý: AI chỉ hỗ trợ giải thích giáo dục y khoa, tuyệt đối không thay thế chỉ định của bác sĩ điều trị.
+              Lưu ý: Bác Sĩ AI chỉ hỗ trợ giải thích giáo dục sức khỏe, không thay thế chẩn đoán hay đơn thuốc trực tiếp của bác sĩ điều trị.
             </Text>
+          </View>
+
+          {/* Quick Suggestions Chips */}
+          <View style={styles.suggestionsSection}>
+            <View style={styles.suggestionsHeader}>
+              <HelpCircle size={14} color={Colors.primary} />
+              <Text style={styles.suggestionsTitle}>Bác có thể hỏi nhanh:</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+              {activeSuggestions.map((item, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.suggestionChip}
+                  onPress={() => sendMessage(item)}
+                  activeOpacity={0.7}
+                >
+                  <Sparkles size={12} color={Colors.primary} />
+                  <Text style={styles.suggestionChipText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
 
           {/* Messages List */}
@@ -124,7 +185,7 @@ export default function AiChatScreen() {
 
                 {msg.sender === 'ai' && (
                   <View style={styles.bubbleActionRow}>
-                    <TTSButton text={msg.text} label="Nghe" compact />
+                    <TTSButton text={msg.text} label="Nghe đọc" compact />
                   </View>
                 )}
               </View>
@@ -140,7 +201,7 @@ export default function AiChatScreen() {
           {loading && (
             <View style={styles.typingBox}>
               <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.typingText}>Bác sĩ AI đang tra cứu câu trả lời...</Text>
+              <Text style={styles.typingText}>Bác sĩ AI đang tra cứu câu trả lời y khoa...</Text>
             </View>
           )}
         </ScrollView>
@@ -149,15 +210,19 @@ export default function AiChatScreen() {
         <View style={styles.inputBar}>
           <TextInput
             style={styles.chatInput}
-            placeholder="Hỏi về đường huyết, mỡ máu, thuốc..."
+            placeholder="Hỏi bác sĩ AI về đường huyết, mỡ máu, thuốc..."
             placeholderTextColor={Colors.textSubtle}
             value={inputText}
             onChangeText={setInputText}
+            multiline={false}
+            returnKeyType="send"
+            onSubmitEditing={handleSend}
           />
           <TouchableOpacity
             style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
             onPress={handleSend}
             disabled={!inputText.trim() || loading}
+            activeOpacity={0.8}
           >
             <Send size={18} color="#FFFFFF" />
           </TouchableOpacity>
@@ -175,30 +240,67 @@ const styles = StyleSheet.create({
   chatContainer: {
     padding: 16,
     paddingBottom: 24,
-    gap: 12,
+    gap: 14,
   },
   disclaimerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.warningBg,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
     padding: 12,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.warningBorder,
-    marginBottom: 6,
   },
   disclaimerText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#9A3412',
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  suggestionsSection: {
+    gap: 8,
+    marginVertical: 4,
+  },
+  suggestionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  suggestionsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primaryDark,
+  },
+  chipsScroll: {
+    gap: 8,
+  },
+  suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  suggestionChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#7C2D12',
-    flex: 1,
-    lineHeight: 16,
+    color: Colors.primaryDark,
   },
   messageRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 10,
-    alignItems: 'flex-end',
   },
   messageRowUser: {
     justifyContent: 'flex-end',
@@ -207,26 +309,27 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   aiAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 2,
   },
   userAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: Colors.primaryDark,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 2,
   },
   bubble: {
     maxWidth: '78%',
     borderRadius: 18,
     padding: 14,
-    gap: 6,
   },
   bubbleUser: {
     backgroundColor: Colors.primary,
@@ -234,49 +337,57 @@ const styles = StyleSheet.create({
   },
   bubbleAi: {
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Colors.border,
     borderBottomLeftRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   messageText: {
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '500',
   },
   messageTextUser: {
     color: '#FFFFFF',
+    fontWeight: '600',
   },
   messageTextAi: {
     color: Colors.textMain,
+    fontWeight: '500',
   },
   bubbleActionRow: {
-    marginTop: 4,
-    alignItems: 'flex-start',
+    marginTop: 10,
+    alignSelf: 'flex-start',
   },
   typingBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   typingText: {
     fontSize: 13,
     color: Colors.textMuted,
-    fontWeight: '600',
+    fontStyle: 'italic',
   },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    gap: 10,
   },
   chatInput: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: 20,
     paddingHorizontal: 16,
@@ -285,14 +396,14 @@ const styles = StyleSheet.create({
     color: Colors.textMain,
   },
   sendBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendBtnDisabled: {
-    backgroundColor: '#CBD5E1',
+    backgroundColor: Colors.textSubtle,
   },
 });

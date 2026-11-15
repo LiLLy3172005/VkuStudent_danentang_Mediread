@@ -27,6 +27,7 @@ import {
   Info,
   FileText,
   Volume2,
+  ChevronRight,
 } from 'lucide-react-native';
 
 export default function DocumentDetailScreen() {
@@ -291,6 +292,33 @@ export default function DocumentDetailScreen() {
             })}
           </View>
         )}
+
+        {/* Ask Doctor AI CTA Button */}
+        <TouchableOpacity
+          style={styles.askAiDoctorBtn}
+          onPress={() =>
+            router.push({
+              pathname: '/ai-chat',
+              params: {
+                documentId: doc.id,
+                facility: doc.facility_name,
+                docType: doc.doc_type,
+              },
+            } as any)
+          }
+          activeOpacity={0.85}
+        >
+          <View style={styles.askAiIconCircle}>
+            <Sparkles size={22} color="#FFFFFF" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.askAiDoctorTitle}>Hỏi Bác Sĩ AI về kết quả này</Text>
+            <Text style={styles.askAiDoctorSubtitle}>
+              Giải đáp thắc mắc về chỉ số hoặc thuốc trên phiếu
+            </Text>
+          </View>
+          <ChevronRight size={20} color="#FFFFFF" />
+        </TouchableOpacity>
 
         {/* OCR Raw Text Drawer Toggle */}
         <TouchableOpacity
@@ -619,5 +647,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#86EFAC',
     lineHeight: 18,
+  },
+  askAiDoctorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.primaryDark,
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  askAiIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  askAiDoctorTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  askAiDoctorSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.primaryPale,
+    marginTop: 2,
   },
 });

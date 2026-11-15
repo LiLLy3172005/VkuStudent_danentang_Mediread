@@ -256,6 +256,15 @@ class ApiService {
     }
   }
 
+  // AI Doctor Consultation
+  async chatDoctorAI(message: string, documentId?: string): Promise<{ reply: string; suggested_questions?: string[] }> {
+    return this.request<{ reply: string; suggested_questions?: string[] }>('/api/v1/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, document_id: documentId }),
+    });
+  }
+
   // Care Links
   async getCareLinks(): Promise<CareLink[]> {
     try {
