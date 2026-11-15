@@ -3,24 +3,72 @@ import { Platform } from 'react-native';
 import { DocumentDetail, DocumentSummary, Profile, CareLink } from '../types';
 
 const TOKEN_KEY = 'mediread_auth_token';
+const SERVER_URL_KEY = 'mediread_server_url';
 
 // Default LAN IP for physical device / emulator access to FastAPI
-export const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://172.16.0.2:8000';
+export const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.161.30.195:8000';
 
 class ApiService {
   private baseUrl: string = DEFAULT_API_URL;
   private cachedToken: string | null = null;
 
   constructor() {
-    this.initToken();
+    this.init();
   }
 
-  setBaseUrl(url: string) {
-    this.baseUrl = url.replace(/\/+$/, '');
+  async init() {
+    await Promise.all([this.initUrl(), this.initToken()]);
+  }
+
+  async initUrl(): Promise<string> {
+    try {
+      if (Platform.OS !== 'web') {
+        const savedUrl = await SecureStore.getItemAsync(SERVER_URL_KEY);
+        if (savedUrl && savedUrl.startsWith('http')) {
+          this.baseUrl = savedUrl.replace(/\/+$/, '');
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return this.baseUrl;
+  }
+
+  async setBaseUrl(url: string) {
+    const cleanUrl = url.trim().replace(/\/+$/, '');
+    this.baseUrl = cleanUrl;
+    try {
+      if (Platform.OS !== 'web') {
+        await SecureStore.setItemAsync(SERVER_URL_KEY, cleanUrl);
+      }
+    } catch (e) {
+      console.warn('SecureStore server url error:', e);
+    }
   }
 
   getBaseUrl(): string {
     return this.baseUrl;
+  }
+
+  async testConnection(targetUrl?: string): Promise<{ success: boolean; message: string; count?: number }> {
+    const url = (targetUrl || this.baseUrl).replace(/\/+$/, '') + '/api/v1/auth/accounts';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const data = await res.json();
+        return { success: true, message: `Kết nối thành công! Đã tìm thấy ${Array.isArray(data) ? data.length : 0} hồ sơ.`, count: data.length };
+      }
+      return { success: false, message: `Máy chủ phản hồi mã lỗi HTTP ${res.status}` };
+    } catch (e: any) {
+      clearTimeout(timeout);
+      if (e.name === 'AbortError') {
+        return { success: false, message: 'Hết thời gian chờ (Timeout 4s). Kiểm tra lại kết nối mạng.' };
+      }
+      return { success: false, message: e.message || 'Không thể kết nối đến máy chủ.' };
+    }
   }
 
   async initToken(): Promise<string | null> {
