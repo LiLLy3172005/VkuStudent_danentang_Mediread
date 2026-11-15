@@ -247,7 +247,10 @@ class ApiService {
   // Trends
   async getTrends(code: string = 'GLU'): Promise<any[]> {
     try {
-      return await this.request<any[]>(`/api/v1/medical/trends?indicator_code=${code}`);
+      const res = await this.request<any>(`/api/v1/medical/trends?indicator_code=${code}`);
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.history)) return res.history;
+      return [];
     } catch {
       return [];
     }

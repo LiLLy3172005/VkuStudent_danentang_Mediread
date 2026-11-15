@@ -125,8 +125,12 @@ export default function ScanScreen() {
               onPress={() => setDocType('lab_report')}
               activeOpacity={0.8}
             >
-              <FileSpreadsheet size={18} color={docType === 'lab_report' ? '#FFFFFF' : Colors.primaryDark} />
-              <Text style={[styles.typeBtnText, docType === 'lab_report' && styles.typeBtnTextActive]}>
+              <FileSpreadsheet size={16} color={docType === 'lab_report' ? '#FFFFFF' : Colors.primaryDark} style={{ flexShrink: 0 }} />
+              <Text
+                style={[styles.typeBtnText, docType === 'lab_report' && styles.typeBtnTextActive]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
                 Phiếu Xét Nghiệm
               </Text>
             </TouchableOpacity>
@@ -136,8 +140,12 @@ export default function ScanScreen() {
               onPress={() => setDocType('prescription')}
               activeOpacity={0.8}
             >
-              <Pill size={18} color={docType === 'prescription' ? '#FFFFFF' : Colors.primaryDark} />
-              <Text style={[styles.typeBtnText, docType === 'prescription' && styles.typeBtnTextActive]}>
+              <Pill size={16} color={docType === 'prescription' ? '#FFFFFF' : Colors.primaryDark} style={{ flexShrink: 0 }} />
+              <Text
+                style={[styles.typeBtnText, docType === 'prescription' && styles.typeBtnTextActive]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
                 Đơn Thuốc Bác Sĩ
               </Text>
             </TouchableOpacity>
@@ -250,21 +258,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: 14,
     paddingVertical: 12,
+    paddingHorizontal: 8,
+    overflow: 'hidden',
   },
   typeBtnActive: {
     backgroundColor: Colors.primaryDark,
     borderColor: Colors.primaryDark,
   },
   typeBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.primaryDark,
+    flexShrink: 1,
   },
   typeBtnTextActive: {
     color: '#FFFFFF',

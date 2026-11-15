@@ -35,13 +35,25 @@ export default function TrendsScreen() {
   const loadTrends = async () => {
     setLoading(true);
     try {
-      const records = await api.getTrends(selectedCode);
+      const raw: any = await api.getTrends(selectedCode);
+      const records: any[] = Array.isArray(raw) ? raw : (raw?.history || []);
       if (records && records.length > 0) {
         setChartData(
-          records.map((r) => ({
-            date: r.measured_at ? r.measured_at.slice(5) : '01/01',
-            value: Number(r.value_num) || 0,
-          }))
+          records.map((r: any) => {
+            let dStr = '01/01';
+            if (r.measured_at) {
+              const parts = r.measured_at.split('-');
+              if (parts.length === 3) {
+                dStr = `${parts[2]}/${parts[1]}`;
+              } else {
+                dStr = r.measured_at.slice(5);
+              }
+            }
+            return {
+              date: dStr,
+              value: Number(r.value_num) || 0,
+            };
+          })
         );
       } else {
         // Fallback demo sequence if new user has few uploads

@@ -15,12 +15,15 @@ export default function TabLayout() {
           backgroundColor: '#FFFFFF',
           borderTopColor: Colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 68,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 88 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+          paddingTop: 6,
+        },
+        tabBarItemStyle: {
+          paddingHorizontal: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '700',
         },
       }}
@@ -29,23 +32,23 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Trang chủ',
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Home size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'Quét phiếu',
+          title: 'Quét',
           tabBarIcon: ({ color }) => (
             <View style={styles.scanButton}>
-              <Scan size={26} color="#FFFFFF" />
+              <Scan size={24} color="#FFFFFF" />
             </View>
           ),
           tabBarLabelStyle: {
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: '800',
             color: Colors.primary,
-            marginTop: 4,
+            marginTop: 2,
           },
         }}
       />
@@ -53,21 +56,21 @@ export default function TabLayout() {
         name="history"
         options={{
           title: 'Lịch sử',
-          tabBarIcon: ({ color, size }) => <FileText size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <FileText size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
         name="trends"
         options={{
           title: 'Xu hướng',
-          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <TrendingUp size={size - 2} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Tài khoản',
-          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+          title: 'Hồ sơ',
+          tabBarIcon: ({ color, size }) => <User size={size - 2} color={color} />,
         }}
       />
     </Tabs>

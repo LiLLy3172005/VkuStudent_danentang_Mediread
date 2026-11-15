@@ -20,16 +20,19 @@ from app.schemas.medical import (
 router = APIRouter(prefix="/api/v1", tags=["Medical & Labs"])
 
 
+@router.get("/medical/trends")
 @router.get("/labs/trends/{code}", response_model=LabTrendResponse)
 async def get_indicator_trends(
-    code: str,
+    code: Optional[str] = None,
+    indicator_code: Optional[str] = None,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
-    Returns historical trend points for an indicator (e.g. 'GLU', 'CHOL', 'CREAT')
+    Returns historical trend points for an indicator (e.g. 'GLU', 'CHOL', 'CRE', 'AST')
     across multiple medical visits to plot trend charts.
     """
-    records = await db_service.get_lab_trends(current_user.id, code)
+    target_code = code or indicator_code or "GLU"
+    records = await db_service.get_lab_trends(current_user.id, target_code)
 
     points = []
     current_val = None
@@ -49,8 +52,8 @@ async def get_indicator_trends(
         )
 
     return LabTrendResponse(
-        name=records[0]["name"] if records else code,
-        normalized_code=code.upper(),
+        name=records[0]["name"] if records else target_code,
+        normalized_code=target_code.upper(),
         current_value=current_val,
         unit=unit,
         history=points,

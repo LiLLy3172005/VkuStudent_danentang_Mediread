@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,40 +9,34 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { api, DEFAULT_API_URL } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { Profile } from '../../types';
 import {
-  User,
   Phone,
-  CheckCircle2,
+  Lock,
   UserPlus,
   Settings,
-  RefreshCw,
   Server,
   Check,
   AlertCircle,
   X,
   Wifi,
-  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
-  const [tab, setTab] = useState<'profiles' | 'phone'>('profiles');
-  const [accounts, setAccounts] = useState<Profile[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [submitting, setSubmitting] = useState<boolean>(false);
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   // Server Settings Modal State
   const [settingsVisible, setSettingsVisible] = useState<boolean>(false);
@@ -50,48 +44,9 @@ export default function LoginScreen() {
   const [testingConnection, setTestingConnection] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  const loadAccounts = async () => {
-    setLoadingAccounts(true);
-    setLoadError(null);
-    try {
-      const data = await api.getAccounts();
-      setAccounts(data);
-    } catch (e: any) {
-      console.warn('Load accounts error:', e);
-      setLoadError(e.message || 'Không thể kết nối đến máy chủ API.');
-    } finally {
-      setLoadingAccounts(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadAccounts();
-  }, []);
-
-  const handleSelectAccount = async (account: Profile) => {
-    setSubmitting(true);
-    try {
-      await login({ user_id: account.id });
-      router.replace('/(tabs)');
-    } catch (e: any) {
-      Alert.alert(
-        'Đăng nhập thất bại',
-        `${e.message || 'Không thể đăng nhập vào hồ sơ này.'}\n\nHãy kiểm tra xem máy chủ backend đang chạy và điện thoại cùng mạng Wi-Fi.`
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handlePhoneLogin = async () => {
     if (!phoneNumber || phoneNumber.trim().length < 6) {
-      Alert.alert('Lưu ý', 'Vui lòng nhập số điện thoại hoặc mã người dùng hợp lệ.');
+      Alert.alert('Lưu ý', 'Vui lòng nhập số điện thoại hợp lệ (tối thiểu 6 số).');
       return;
     }
     if (!password || password.length < 6) {
@@ -106,7 +61,7 @@ export default function LoginScreen() {
     } catch (e: any) {
       Alert.alert(
         'Đăng nhập thất bại',
-        `${e.message || 'Số điện thoại hoặc mật khẩu không chính xác.'}\n\nHãy kiểm tra xem máy chủ backend đang chạy và điện thoại cùng mạng Wi-Fi.`
+        `${e.message || 'Số điện thoại hoặc mật khẩu không chính xác.'}\n\nHãy kiểm tra lại thông tin hoặc thử đăng ký tài khoản mới.`
       );
     } finally {
       setSubmitting(false);
@@ -140,7 +95,7 @@ export default function LoginScreen() {
     }
     await api.setBaseUrl(clean);
     setSettingsVisible(false);
-    loadAccounts();
+    Alert.alert('Thành công', 'Đã lưu địa chỉ máy chủ API.');
   };
 
   const handleResetDefaultUrl = () => {
@@ -150,33 +105,12 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.primary]}
-            tintColor={Colors.primary}
-          />
-        }
-      >
-        {/* Top bar with Server Settings Icon */}
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        {/* Top bar with Secure Badge & Settings Icon */}
         <View style={styles.topBar}>
           <View style={styles.networkStatusPill}>
-            <Wifi size={13} color={loadError ? Colors.highText : Colors.primaryDark} />
-            <Text
-              style={[
-                styles.networkStatusText,
-                loadError && { color: Colors.highText },
-              ]}
-              numberOfLines={1}
-            >
-              {(() => {
-                const url = api.getBaseUrl();
-                if (url.startsWith('https://')) return '🔒 Kết nối bảo mật';
-                return '🔒 Kết nối bảo mật';
-              })()}            </Text>
+            <ShieldCheck size={14} color={Colors.primary} />
+            <Text style={styles.networkStatusText}>🔒 Kết nối bảo mật</Text>
           </View>
 
           <TouchableOpacity
@@ -185,7 +119,7 @@ export default function LoginScreen() {
             activeOpacity={0.7}
             accessibilityLabel="Cài đặt máy chủ"
           >
-            <Settings size={22} color={Colors.primaryDark} />
+            <Settings size={20} color={Colors.primaryDark} />
           </TouchableOpacity>
         </View>
 
@@ -195,149 +129,18 @@ export default function LoginScreen() {
             <Text style={styles.crossIcon}>✚</Text>
           </View>
           <Text style={styles.title}>Đăng Nhập MediRead AI</Text>
-          <Text style={styles.subtitle}>Chọn hồ sơ có sẵn trên hệ thống hoặc đăng nhập bằng SĐT</Text>
+          <Text style={styles.subtitle}>
+            Trợ lý đọc hiểu phiếu xét nghiệm & đơn thuốc thông minh cho gia đình
+          </Text>
         </View>
 
-        {/* Connection Error Banner (if any) */}
-        {loadError && (
-          <View style={styles.errorBanner}>
-            <View style={styles.errorHeaderRow}>
-              <AlertCircle size={20} color={Colors.highText} />
-              <Text style={styles.errorTitle}>Chưa kết nối được máy chủ backend</Text>
-            </View>
-            <Text style={styles.errorDetail}>
-              Địa chỉ hiện tại: <Text style={styles.monoText}>{api.getBaseUrl()}</Text>
-            </Text>
-            <Text style={styles.errorHint}>
-              • Đảm bảo máy tính và điện thoại kết nối cùng mạng Wi-Fi.{'\n'}
-              • Đảm bảo backend FastAPI đang chạy trên cổng 8000.
-            </Text>
-            <View style={styles.errorBtnRow}>
-              <TouchableOpacity
-                style={styles.retryBtn}
-                onPress={loadAccounts}
-                activeOpacity={0.8}
-              >
-                <RefreshCw size={15} color="#FFFFFF" />
-                <Text style={styles.retryBtnText}>Thử Lại</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.changeIpBtn}
-                onPress={handleOpenSettings}
-                activeOpacity={0.8}
-              >
-                <Settings size={15} color={Colors.primaryDark} />
-                <Text style={styles.changeIpBtnText}>Đổi IP Máy Chủ</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Tab Switcher */}
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={[styles.tabBtn, tab === 'profiles' && styles.tabBtnActive]}
-            onPress={() => setTab('profiles')}
-            activeOpacity={0.8}
-          >
-            <User size={16} color={tab === 'profiles' ? '#FFFFFF' : Colors.primaryDark} />
-            <Text style={[styles.tabText, tab === 'profiles' && styles.tabTextActive]}>
-              Chọn Hồ Sơ Nhanh
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, tab === 'phone' && styles.tabBtnActive]}
-            onPress={() => setTab('phone')}
-            activeOpacity={0.8}
-          >
-            <Phone size={16} color={tab === 'phone' ? '#FFFFFF' : Colors.primaryDark} />
-            <Text style={[styles.tabText, tab === 'phone' && styles.tabTextActive]}>
-              Số Điện Thoại
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Tab 1: Profiles List */}
-        {tab === 'profiles' && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionLabel}>Hồ sơ người dùng trên hệ thống:</Text>
-              <TouchableOpacity onPress={loadAccounts} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <RefreshCw size={16} color={Colors.primary} />
-              </TouchableOpacity>
-            </View>
-
-            {loadingAccounts ? (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.loadingText}>Đang tải danh sách hồ sơ từ máy chủ...</Text>
-              </View>
-            ) : accounts.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>
-                  {loadError
-                    ? 'Không lấy được danh sách do lỗi kết nối. Hãy bấm "Thử Lại" hoặc kiểm tra IP máy chủ.'
-                    : 'Chưa có hồ sơ nào trên hệ thống. Bạn có thể đăng ký tài khoản mới bên dưới.'}
-                </Text>
-                <TouchableOpacity style={styles.emptyRetryBtn} onPress={loadAccounts}>
-                  <RefreshCw size={16} color={Colors.primary} />
-                  <Text style={styles.emptyRetryText}>Tải lại danh sách</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              accounts.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.accountCard}
-                  onPress={() => handleSelectAccount(item)}
-                  disabled={submitting}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {item.full_name ? item.full_name.charAt(0).toUpperCase() : 'U'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.accountInfo}>
-                    <View style={styles.nameRow}>
-                      <Text style={styles.accountName}>{item.full_name}</Text>
-                      <View
-                        style={[
-                          styles.roleBadge,
-                          item.role === 'caregiver' ? styles.roleCaregiver : styles.rolePatient,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.roleText,
-                            item.role === 'caregiver' ? styles.roleTextCaregiver : styles.roleTextPatient,
-                          ]}
-                        >
-                          {item.role === 'caregiver' ? 'Người chăm sóc' : 'Bệnh nhân'}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.accountDetail}>
-                      {item.birth_year ? `Năm sinh: ${item.birth_year}` : 'Hồ sơ đã xác thực'} •{' '}
-                      {item.sex === 'nu' ? 'Nữ' : 'Nam'}
-                    </Text>
-                  </View>
-
-                  <CheckCircle2 size={20} color={Colors.primary} />
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        )}
-
-        {/* Tab 2: Phone Input */}
-        {tab === 'phone' && (
-          <View style={styles.section}>
-            <Text style={styles.inputLabel}>Nhập số điện thoại đã đăng ký:</Text>
-            <View style={[styles.inputWrapper, { marginBottom: 14 }]}>
-              <Phone size={20} color={Colors.textMuted} style={{ marginRight: 10 }} />
+        {/* Login Form */}
+        <View style={styles.formCard}>
+          {/* Phone Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Số điện thoại</Text>
+            <View style={styles.inputWrapper}>
+              <Phone size={18} color={Colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Ví dụ: 0912345678"
@@ -345,36 +148,53 @@ export default function LoginScreen() {
                 keyboardType="phone-pad"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
+                autoCapitalize="none"
               />
             </View>
+          </View>
 
-            <Text style={[styles.inputLabel, { marginBottom: 8 }]}>Mật khẩu:</Text>
-            <View style={[styles.inputWrapper, { marginBottom: 4 }]}>
-              <Lock size={20} color={Colors.textMuted} style={{ marginRight: 10 }} />
+          {/* Password Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Mật khẩu</Text>
+            <View style={styles.inputWrapper}>
+              <Lock size={18} color={Colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Mật khẩu (tối thiểu 6 ký tự)"
+                placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
                 placeholderTextColor={Colors.textSubtle}
-                secureTextEntry={true}
+                secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
+                autoCapitalize="none"
               />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {showPassword ? (
+                  <EyeOff size={20} color={Colors.textMuted} />
+                ) : (
+                  <Eye size={20} color={Colors.textMuted} />
+                )}
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={styles.submitBtn}
-              onPress={handlePhoneLogin}
-              disabled={submitting}
-              activeOpacity={0.8}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.submitBtnText}>Đăng Nhập Ngay</Text>
-              )}
-            </TouchableOpacity>
           </View>
-        )}
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={styles.submitBtn}
+            onPress={handlePhoneLogin}
+            disabled={submitting}
+            activeOpacity={0.8}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitBtnText}>Đăng Nhập</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* Register CTA */}
         <TouchableOpacity
@@ -412,7 +232,7 @@ export default function LoginScreen() {
             </View>
 
             <Text style={styles.modalDesc}>
-              Nhập địa chỉ IP mạng LAN của máy tính đang chạy backend FastAPI (cổng 8000).
+              Nhập địa chỉ IP máy chủ backend FastAPI (mặc định cổng 8000).
             </Text>
 
             <View style={styles.urlInputBox}>
@@ -495,7 +315,7 @@ export default function LoginScreen() {
                 onPress={handleSaveSettings}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalSaveText}>Lưu & Kết Nối</Text>
+                <Text style={styles.modalSaveText}>Lưu & Áp Dụng</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -518,29 +338,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   networkStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: Colors.surface,
-    paddingVertical: 5,
+    paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.border,
-    maxWidth: '75%',
   },
   networkStatusText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.primaryDark,
   },
   settingsIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -550,19 +369,24 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginTop: 6,
-    marginBottom: 20,
+    marginBottom: 26,
   },
   logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 68,
+    height: 68,
+    borderRadius: 22,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   crossIcon: {
-    fontSize: 34,
+    fontSize: 36,
     color: '#FFFFFF',
     fontWeight: '800',
   },
@@ -579,260 +403,63 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 20,
+    paddingHorizontal: 10,
   },
-  errorBanner: {
-    backgroundColor: Colors.highBg,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 18,
-    borderWidth: 1.5,
-    borderColor: Colors.highBorder,
-  },
-  errorHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  errorTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Colors.highText,
-  },
-  errorDetail: {
-    fontSize: 13,
-    color: Colors.highText,
-    marginBottom: 6,
-  },
-  monoText: {
-    fontWeight: '800',
-    fontFamily: 'monospace',
-  },
-  errorHint: {
-    fontSize: 12,
-    color: '#7A2222',
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  errorBtnRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  retryBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  retryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  changeIpBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+  formCard: {
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  changeIpBtnText: {
-    color: Colors.primaryDark,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 4,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  tabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  tabBtnActive: {
-    backgroundColor: Colors.primaryDark,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.primaryDark,
-  },
-  tabTextActive: {
-    color: '#FFFFFF',
-  },
-  section: {
-    gap: 12,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.primaryDark,
-  },
-  loadingBox: {
-    paddingVertical: 24,
-    alignItems: 'center',
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: Colors.textMuted,
-  },
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  emptyRetryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  emptyRetryText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  accountCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 22,
+    padding: 20,
     borderWidth: 1.5,
     borderColor: Colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowRadius: 8,
     elevation: 2,
-    gap: 12,
+    gap: 16,
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primaryPale,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  accountInfo: {
-    flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  inputGroup: {
     gap: 6,
   },
-  accountName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.textMain,
-    flex: 1,
-  },
-  roleBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
-  rolePatient: {
-    backgroundColor: Colors.normalBg,
-  },
-  roleCaregiver: {
-    backgroundColor: Colors.lowBg,
-  },
-  roleText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  roleTextPatient: {
-    color: Colors.normalText,
-  },
-  roleTextCaregiver: {
-    color: Colors.lowText,
-  },
-  accountDetail: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    fontWeight: '500',
-    marginTop: 2,
-  },
   inputLabel: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: Colors.primaryDark,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 54,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+  },
+  inputIcon: {
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.textMain,
+  },
+  eyeBtn: {
+    padding: 4,
   },
   submitBtn: {
     backgroundColor: Colors.primary,
     height: 52,
-    borderRadius: 16,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   submitBtnText: {
     fontSize: 16,
@@ -844,7 +471,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 24,
+    marginTop: 26,
     padding: 12,
   },
   registerText: {
