@@ -1,7 +1,8 @@
 """
 MediRead AI - Clinical Doctor AI Consultation Route
-Dynamic medical AI powered by Gemini Flash & HMU Clinical RAG Knowledge.
-Answers ANY user question accurately, directly to the point, and in elderly-accessible Vietnamese.
+Primary Engine: Local Ollama Qwen 2.5 7B + Local RAG Knowledge Base (from Thutudong)
+Fallback Engine: Gemini Flash Lite / Embedded Clinical KB
+Direct, empathetic consultation for elderly patients and families in Vietnam.
 """
 
 import os
@@ -20,19 +21,70 @@ from app.services.supabase_service import db_service
 logger = logging.getLogger("mediread.ai")
 router = APIRouter(prefix="/api/v1/ai", tags=["AI Clinical Consultation"])
 
+# Configuration for Local Ollama Bot & Cloud Fallback
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+
 GEMINI_API_KEY = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = "gemini-flash-lite-latest"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
-SYSTEM_PROMPT = """Bạn là Bác Sĩ AI MediRead — trợ lý tư vấn sức khỏe và giải thích kết quả y khoa cho người bệnh, đặc biệt là người cao tuổi và gia đình người bệnh tại Việt Nam.
+# Path to the user's RAG knowledge FAQ in Thutudong
+RAG_FAQ_PATHS = [
+    r"D:\Do An Cuoi Ki\Thutudong\faq_xet_nghiem.md",
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "Thutudong", "faq_xet_nghiem.md"),
+]
+
+SYSTEM_PROMPT = """Bạn là Bác Sĩ AI MediRead — trợ lý tư vấn sức khỏe và giải thích kết quả y khoa cho người bệnh lớn tuổi và gia đình tại Việt Nam.
 
 QUY TẮC BẮT BUỘC:
 1. TRẢ LỜI ĐÚNG TRỌNG TÂM câu hỏi của người bệnh. KHÔNG nói vòng vo, KHÔNG trả lời rập khuôn.
-2. Giọng điệu ân cần, lễ phép, gần gũi, xưng "cháu" và gọi người dùng là "bác" (hoặc "bạn").
-3. Giải thích ngắn gọn, dễ hiểu, tối đa 3-5 câu, không dùng thuật ngữ chuyên môn quá hàn lâm mà không giải nghĩa.
+2. Giọng điệu ân cần, lễ phép, gần gũi. Xưng "cháu" và gọi người bệnh là "bác". Bắt đầu câu trả lời bằng: "Dạ thưa bác, ".
+3. Giải thích ngắn gọn, dễ hiểu, tối đa 3-5 câu, tránh thuật ngữ y khoa phức tạp mà không giải nghĩa.
 4. TUYỆT ĐỐI KHÔNG tự ý chẩn đoán xác định bệnh nan y hay khuyên người bệnh tự ý ngưng thuốc điều trị. Luôn nhắc nhở tham vấn bác sĩ trực tiếp khám bệnh khi cần thay đổi liều lượng.
 5. Nếu trong ngữ cảnh có thông tin phiếu xét nghiệm của người bệnh, hãy đối chiếu trực tiếp với các chỉ số đó để trả lời chính xác.
 """
+
+def load_local_rag_knowledge() -> List[Dict[str, str]]:
+    """Loads sections from the user's Thutudong faq_xet_nghiem.md if available."""
+    for path in RAG_FAQ_PATHS:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                raw_sections = content.split("## ")
+                docs = []
+                for s in raw_sections:
+                    s = s.strip()
+                    if not s:
+                        continue
+                    lines = s.split("\n", 1)
+                    title = lines[0].strip()
+                    body = lines[1].strip() if len(lines) > 1 else ""
+                    docs.append({"title": title, "content": f"{title}\n{body}"})
+                return docs
+            except Exception as e:
+                logger.warning("Could not read RAG FAQ from %s: %s", path, e)
+    return []
+
+LOCAL_RAG_DOCS = load_local_rag_knowledge()
+
+def search_local_rag(query: str, top_k: int = 2) -> str:
+    """Simple keyword matching over the user's RAG knowledge base."""
+    if not LOCAL_RAG_DOCS:
+        return ""
+    q_words = [w.lower() for w in re.findall(r"\w+", query) if len(w) > 1]
+    if not q_words:
+        return ""
+    scored = []
+    for doc in LOCAL_RAG_DOCS:
+        content_lower = doc["content"].lower()
+        score = sum(1 for w in q_words if w in content_lower)
+        if score > 0:
+            scored.append((score, doc["content"]))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    best = [c for _, c in scored[:top_k]]
+    return "\n\n---\n\n".join(best)
 
 # Fallback Clinical Knowledge Base if offline or API quota limit reached
 FALLBACK_CLINICAL_KB: Dict[str, Dict[str, Any]] = {
@@ -54,27 +106,64 @@ FALLBACK_CLINICAL_KB: Dict[str, Dict[str, Any]] = {
     },
 }
 
-
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     document_id: Optional[str] = None
-
 
 class ChatResponse(BaseModel):
     reply: str
     suggested_questions: List[str] = []
     has_clinical_source: bool = True
+    engine: Optional[str] = None
 
 
-async def query_gemini_ai(user_prompt: str, context_text: str = "") -> Optional[str]:
-    """Queries Gemini API for direct, empathetic clinical consultation."""
+async def query_local_ollama_ai(user_prompt: str, context_text: str = "", rag_text: str = "") -> Optional[str]:
+    """
+    Primary: Queries the user's local Qwen 2.5 7B model running on Ollama.
+    Uses zero cloud dependencies, private, local, exactly from the user's project.
+    """
+    full_prompt = f"{SYSTEM_PROMPT}\n\n"
+    if rag_text:
+        full_prompt += f"[TÀI LIỆU Y KHOA THAM KHẢO]:\n{rag_text}\n\n"
+    if context_text:
+        full_prompt += f"[THÔNG TIN PHIẾU KHÁM CỦA BỆNH NHÂN]:\n{context_text}\n\n"
+    full_prompt += f"[CÂU HỎI CỦA NGƯỜI BỆNH]:\n{user_prompt}\n\n[TRẢ LỜI]:"
+
+    try:
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            resp = await client.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json={
+                    "model": OLLAMA_MODEL,
+                    "messages": [{"role": "user", "content": full_prompt}],
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.2,
+                        "num_predict": 400,
+                    },
+                },
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                msg = data.get("message", {}).get("content", "").strip()
+                if msg:
+                    return msg
+    except Exception as exc:
+        logger.info("Local Ollama not reachable (%s), will try fallback...", exc)
+    return None
+
+
+async def query_gemini_ai(user_prompt: str, context_text: str = "", rag_text: str = "") -> Optional[str]:
+    """Secondary Fallback: Queries Gemini API if local Ollama is offline."""
     if not GEMINI_API_KEY:
         return None
 
     full_prompt = f"{SYSTEM_PROMPT}\n\n"
+    if rag_text:
+        full_prompt += f"[TÀI LIỆU Y KHOA THAM KHẢO]:\n{rag_text}\n\n"
     if context_text:
         full_prompt += f"[THÔNG TIN PHIẾU KHÁM CỦA BỆNH NHÂN]:\n{context_text}\n\n"
-    full_prompt += f"[CÂU HỎI CỦA NGƯỜI BỆNH]:\n{user_prompt}\n\n[BÁC SĨ AI TRẢ LỜI ĐÚNG TRỌNG TÂM]:"
+    full_prompt += f"[CÂU HỎI CỦA NGƯỜI BỆNH]:\n{user_prompt}\n\n[TRẢ LỜI]:"
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -95,11 +184,8 @@ async def query_gemini_ai(user_prompt: str, context_text: str = "") -> Optional[
                     parts = candidates[0].get("content", {}).get("parts", [])
                     if parts and "text" in parts[0]:
                         return parts[0]["text"].strip()
-            else:
-                logger.warning("Gemini API returned status %s: %s", resp.status_code, resp.text[:150])
     except Exception as exc:
-        logger.error("Gemini API call failed: %s", exc)
-
+        logger.warning("Gemini API call failed: %s", exc)
     return None
 
 
@@ -109,10 +195,11 @@ async def chat_doctor_ai(
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
-    Direct, dynamic clinical consultation endpoint for elderly patients and caregivers.
-    1. Answers user question accurately and directly to the point using Gemini AI.
-    2. Incorporates patient context if document_id is provided.
-    3. Falls back gracefully to HMU Clinical KB if network is offline.
+    Direct, dynamic clinical consultation endpoint:
+    1. Retrieves relevant RAG chunks from the user's local FAQ/books.
+    2. Prioritizes the user's Local Qwen 2.5 7B Bot via Ollama.
+    3. Falls back gracefully to Gemini API if Ollama is not active.
+    4. Falls back to static clinical KB if completely offline.
     """
     user_query = req.message.strip()
     doc_context = ""
@@ -146,11 +233,21 @@ async def chat_doctor_ai(
         except Exception as exc:
             logger.warning("Could not pull doc context: %s", exc)
 
-    # 2. Try Gemini Dynamic Reasoning
-    ai_reply = await query_gemini_ai(user_query, doc_context)
+    # 2. Retrieve relevant chunks from local RAG KB
+    rag_context = search_local_rag(user_query)
 
-    # 3. Fallback to Clinical Knowledge Base if Gemini offline
+    # 3. Step 1: Query user's local Qwen 2.5 7B bot via Ollama
+    engine_used = f"Ollama {OLLAMA_MODEL} (Local RAG)"
+    ai_reply = await query_local_ollama_ai(user_query, doc_context, rag_context)
+
+    # 4. Step 2: Cloud Fallback to Gemini if Ollama was not available
     if not ai_reply:
+        engine_used = f"Gemini {GEMINI_MODEL} (Cloud Fallback)"
+        ai_reply = await query_gemini_ai(user_query, doc_context, rag_context)
+
+    # 5. Step 3: Offline Clinical KB Fallback
+    if not ai_reply:
+        engine_used = "Clinical Knowledge Base (Offline Fallback)"
         lower_q = user_query.lower()
         matched = None
         for key, item in FALLBACK_CLINICAL_KB.items():
@@ -167,7 +264,7 @@ async def chat_doctor_ai(
                 "Nếu bác có triệu chứng mệt mỏi, tức ngực hay khó chịu bất thường, bác hãy đến gặp bác sĩ trực tiếp để được thăm khám kỹ càng nhé!"
             )
 
-    # 4. Generate relevant follow-up questions
+    # 6. Follow-up suggestions
     suggestions = [
         "Chỉ số xét nghiệm của tôi có bình thường không?",
         "Khi nào nên uống thuốc huyết áp?",
@@ -178,4 +275,5 @@ async def chat_doctor_ai(
         reply=ai_reply,
         suggested_questions=suggestions,
         has_clinical_source=True,
+        engine=engine_used,
     )
