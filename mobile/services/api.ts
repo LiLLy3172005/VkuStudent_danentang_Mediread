@@ -140,7 +140,7 @@ class ApiService {
     return this.request<Profile[]>('/api/v1/auth/accounts');
   }
 
-  async login(payload: { user_id?: string; phone?: string }): Promise<{ access_token: string; profile: Profile }> {
+  async login(payload: { user_id?: string; phone?: string; password?: string }): Promise<{ access_token: string; profile: Profile }> {
     const res = await this.request<{ access_token: string; profile: Profile }>('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -152,7 +152,7 @@ class ApiService {
     return res;
   }
 
-  async register(payload: { full_name: string; phone?: string; birth_year?: number; sex?: string; role?: string }): Promise<{ access_token: string; profile: Profile }> {
+  async register(payload: { full_name: string; phone?: string; password: string; birth_year?: number; sex?: string; role?: string }): Promise<{ access_token: string; profile: Profile }> {
     const res = await this.request<{ access_token: string; profile: Profile }>('/api/v1/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

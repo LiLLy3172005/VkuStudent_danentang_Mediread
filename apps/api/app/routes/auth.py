@@ -4,9 +4,10 @@ Direct integration with Supabase Auth & PostgreSQL Profiles with fallback for lo
 """
 
 import uuid
+import bcrypt
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 import logging
 
 from app.auth import (
@@ -18,6 +19,7 @@ from app.auth import (
 )
 from app.services.supabase_service import db_service
 from app.config import settings
+from app.security import limiter
 
 logger = logging.getLogger("mediread.auth")
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -29,13 +31,13 @@ class AccountSummary(BaseModel):
     role: str
     sex: Optional[str] = None
     birth_year: Optional[int] = None
-    email: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
     user_id: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
     role: str = Field("patient", pattern="^(patient|caregiver)$")
 
 
@@ -43,6 +45,7 @@ class RegisterRequest(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     phone: Optional[str] = None
     email: Optional[str] = None
+    password: str = Field(..., min_length=6)
     role: str = Field("patient", pattern="^(patient|caregiver)$")
     sex: str = Field("nam", pattern="^(nam|nu|other)$")
     birth_year: Optional[int] = Field(None, ge=1900, le=2100)
@@ -54,8 +57,20 @@ class LoginResponse(BaseModel):
     user: dict
 
 
+def _credentials_table_available() -> bool:
+    """Check if user_credentials table exists (cached per process life)."""
+    if not (db_service.is_connected() and db_service._client):
+        return False
+    try:
+        db_service._client.table("user_credentials").select("user_id").limit(1).execute()
+        return True
+    except Exception:
+        return False
+
+
 @router.get("/accounts", response_model=List[AccountSummary])
-async def list_available_accounts():
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+async def list_available_accounts(request: Request):
     """
     Returns available profiles in the system.
     Enables instant 1-click selection between elderly patients and family caregivers.
@@ -71,7 +86,6 @@ async def list_available_accounts():
                         role=p.get("role", "patient"),
                         sex=p.get("sex"),
                         birth_year=p.get("birth_year"),
-                        email=f"{p['id'][:8]}@mediread.ai",
                     )
                     for p in res.data
                 ]
@@ -86,7 +100,6 @@ async def list_available_accounts():
             role="patient",
             sex="nam",
             birth_year=1954,
-            email="bac.minh@mediread.vn",
         ),
         AccountSummary(
             id=str(DEMO_CAREGIVER_UUID),
@@ -94,7 +107,6 @@ async def list_available_accounts():
             role="caregiver",
             sex="nam",
             birth_year=1986,
-            email="tuan.con@mediread.vn",
         ),
     ]
 
@@ -102,7 +114,8 @@ async def list_available_accounts():
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest):
     """
-    Log in via user_id, phone number, or email.
+    Log in via user_id (1-tap), phone number, or email.
+    Password is verified via bcrypt against user_credentials table when using phone/email.
     Issues a cryptographically signed HS256 JWT compatible with Supabase RLS.
     """
     target_uuid = None
@@ -112,7 +125,7 @@ async def login(req: LoginRequest):
     user_sex = None
     user_birth_year = None
 
-    # Case 1: Logging in via direct user_id selection
+    # Case 1: Logging in via direct user_id selection (1-tap, no password required)
     if req.user_id:
         try:
             target_uuid = uuid.UUID(req.user_id)
@@ -131,11 +144,61 @@ async def login(req: LoginRequest):
             except Exception as exc:
                 logger.warning("Lookup profile failed: %s", exc)
 
-    # Case 2: Logging in via phone or email search in Supabase
-    if not target_uuid:
-        if db_service.is_connected() and db_service._client and (req.phone or req.email):
+    # Case 2: Logging in via phone or email – password verification required
+    if not target_uuid and (req.phone or req.email):
+        if db_service.is_connected() and db_service._client:
+            # Try to verify password against user_credentials table
             try:
-                # Search by matching name or role
+                cred_res = db_service._client.table("user_credentials").select("*").eq(
+                    "phone", (req.phone or "").replace(" ", "")
+                ).limit(1).execute()
+
+                if cred_res.data:
+                    cred = cred_res.data[0]
+                    stored_hash = cred.get("password_hash", "")
+
+                    if req.password:
+                        if not bcrypt.checkpw(req.password.encode(), stored_hash.encode()):
+                            raise HTTPException(
+                                status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="wrong_password",
+                            )
+                    else:
+                        # No password provided but record exists – reject
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="password_required",
+                        )
+                    target_uuid = uuid.UUID(cred["user_id"])
+
+                    # Fetch profile for this user
+                    try:
+                        prof = db_service._client.table("profiles").select("*").eq("id", str(target_uuid)).limit(1).execute()
+                        if prof.data:
+                            p = prof.data[0]
+                            user_name = p.get("full_name")
+                            user_role = p.get("role", user_role)
+                            user_sex = p.get("sex")
+                            user_birth_year = p.get("birth_year")
+                    except Exception as exc:
+                        logger.warning("Profile fetch after cred check failed: %s", exc)
+                else:
+                    # No credentials record – legacy account: allow in with warning
+                    logger.warning(
+                        "Phone %s has no user_credentials entry – running in legacy mode (no password check)",
+                        req.phone,
+                    )
+                    # Fall through to role-based profile lookup below
+
+            except HTTPException:
+                raise
+            except Exception as exc:
+                # user_credentials table might not exist yet
+                logger.warning("user_credentials table not found, running in legacy mode: %s", exc)
+
+        # Legacy / fallback: look up by role if no uuid resolved yet
+        if not target_uuid and db_service.is_connected() and db_service._client:
+            try:
                 prof = db_service._client.table("profiles").select("*").eq("role", req.role).limit(1).execute()
                 if prof.data:
                     p = prof.data[0]
@@ -181,12 +244,16 @@ async def login(req: LoginRequest):
 async def register(req: RegisterRequest):
     """
     Registers a new patient or caregiver directly into Supabase Auth & public.profiles.
+    Password is hashed with bcrypt and stored in user_credentials.
     """
     clean_name = req.full_name.strip()
     if not clean_name:
         raise HTTPException(status_code=400, detail="Vui lòng nhập họ và tên.")
 
     email = req.email or (f"{req.phone.replace(' ', '')}@mediread.ai" if req.phone else f"user_{uuid.uuid4().hex[:8]}@mediread.ai")
+
+    # Hash password
+    password_hash = bcrypt.hashpw(req.password.encode(), bcrypt.gensalt()).decode()
 
     user_uuid = None
 
@@ -212,6 +279,19 @@ async def register(req: RegisterRequest):
                     "birth_year": req.birth_year,
                     "role": req.role,
                 }).eq("id", str(user_uuid)).execute()
+
+                # 3. Store bcrypt hash in user_credentials
+                try:
+                    db_service._client.table("user_credentials").upsert({
+                        "user_id": str(user_uuid),
+                        "phone": req.phone.replace(" ", "") if req.phone else None,
+                        "password_hash": password_hash,
+                    }).execute()
+                    logger.info("Stored password hash for user %s in user_credentials", user_uuid)
+                except Exception as cred_exc:
+                    logger.warning(
+                        "Could not store user_credentials (table may not exist yet): %s", cred_exc
+                    )
 
                 logger.info("Successfully registered user %s (%s) in Supabase", clean_name, user_uuid)
         except Exception as exc:

@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, User, Calendar, Phone, Shield } from 'lucide-react-native';
+import { ArrowLeft, User, Calendar, Phone, Shield, Lock } from 'lucide-react-native';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -22,6 +22,8 @@ export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [birthYear, setBirthYear] = useState('1960');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [sex, setSex] = useState<'nam' | 'nu'>('nam');
   const [role, setRole] = useState<'patient' | 'caregiver'>('patient');
   const [submitting, setSubmitting] = useState(false);
@@ -32,12 +34,23 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (!password || password.length < 6) {
+      Alert.alert('Lưu ý', 'Mật khẩu phải có ít nhất 6 ký tự.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Lưu ý', 'Mật khẩu xác nhận không khớp. Vui lòng nhập lại.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await register({
         full_name: fullName.trim(),
         birth_year: parseInt(birthYear, 10) || 1960,
         phone: phoneNumber.trim() || undefined,
+        password,
         sex,
         role,
       });
@@ -144,6 +157,36 @@ export default function RegisterScreen() {
               keyboardType="phone-pad"
               value={phoneNumber}
               onChangeText={setPhoneNumber}
+            />
+          </View>
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Mật khẩu *</Text>
+          <View style={styles.inputWrapper}>
+            <Shield size={18} color={Colors.textMuted} style={{ marginRight: 10 }} />
+            <TextInput
+              style={styles.input}
+              placeholder="Tối thiểu 6 ký tự"
+              placeholderTextColor={Colors.textSubtle}
+              secureTextEntry={true}
+              value={password}
+              onChangeText={setPassword}
+            />
+          </View>
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Xác nhận mật khẩu *</Text>
+          <View style={styles.inputWrapper}>
+            <Shield size={18} color={Colors.textMuted} style={{ marginRight: 10 }} />
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập lại mật khẩu"
+              placeholderTextColor={Colors.textSubtle}
+              secureTextEntry={true}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
             />
           </View>
         </View>

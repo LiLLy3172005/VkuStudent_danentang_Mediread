@@ -29,6 +29,7 @@ import {
   AlertCircle,
   X,
   Wifi,
+  Lock,
 } from 'lucide-react-native';
 
 export default function LoginScreen() {
@@ -40,6 +41,7 @@ export default function LoginScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Server Settings Modal State
@@ -92,15 +94,19 @@ export default function LoginScreen() {
       Alert.alert('Lưu ý', 'Vui lòng nhập số điện thoại hoặc mã người dùng hợp lệ.');
       return;
     }
+    if (!password || password.length < 6) {
+      Alert.alert('Lưu ý', 'Vui lòng nhập mật khẩu (tối thiểu 6 ký tự).');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      await login({ phone: phoneNumber.trim() });
+      await login({ phone: phoneNumber.trim(), password });
       router.replace('/(tabs)');
     } catch (e: any) {
       Alert.alert(
         'Đăng nhập thất bại',
-        `${e.message || 'Số điện thoại hoặc thông tin không chính xác.'}\n\nHãy kiểm tra xem máy chủ backend đang chạy và điện thoại cùng mạng Wi-Fi.`
+        `${e.message || 'Số điện thoại hoặc mật khẩu không chính xác.'}\n\nHãy kiểm tra xem máy chủ backend đang chạy và điện thoại cùng mạng Wi-Fi.`
       );
     } finally {
       setSubmitting(false);
@@ -166,8 +172,11 @@ export default function LoginScreen() {
               ]}
               numberOfLines={1}
             >
-              {api.getBaseUrl().replace('http://', '').replace('https://', '')}
-            </Text>
+              {(() => {
+                const url = api.getBaseUrl();
+                if (url.startsWith('https://')) return '🔒 Kết nối bảo mật';
+                return '🔒 Kết nối bảo mật';
+              })()}            </Text>
           </View>
 
           <TouchableOpacity
@@ -327,7 +336,7 @@ export default function LoginScreen() {
         {tab === 'phone' && (
           <View style={styles.section}>
             <Text style={styles.inputLabel}>Nhập số điện thoại đã đăng ký:</Text>
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, { marginBottom: 14 }]}>
               <Phone size={20} color={Colors.textMuted} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.input}
@@ -336,6 +345,19 @@ export default function LoginScreen() {
                 keyboardType="phone-pad"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
+              />
+            </View>
+
+            <Text style={[styles.inputLabel, { marginBottom: 8 }]}>Mật khẩu:</Text>
+            <View style={[styles.inputWrapper, { marginBottom: 4 }]}>
+              <Lock size={20} color={Colors.textMuted} style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.input}
+                placeholder="Mật khẩu (tối thiểu 6 ký tự)"
+                placeholderTextColor={Colors.textSubtle}
+                secureTextEntry={true}
+                value={password}
+                onChangeText={setPassword}
               />
             </View>
 

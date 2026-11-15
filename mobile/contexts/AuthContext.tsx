@@ -6,8 +6,8 @@ interface AuthContextType {
   user: Profile | null;
   token: string | null;
   loading: boolean;
-  login: (payload: { user_id?: string; phone?: string }) => Promise<void>;
-  register: (payload: { full_name: string; phone?: string; birth_year?: number; sex?: string; role?: string }) => Promise<void>;
+  login: (payload: { user_id?: string; phone?: string; password?: string }) => Promise<void>;
+  register: (payload: { full_name: string; phone?: string; password: string; birth_year?: number; sex?: string; role?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -16,8 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
   loading: true,
-  login: async () => {},
-  register: async () => {},
+  login: async () => {},  register: async () => {},
   logout: async () => {},
   refreshProfile: async () => {},
 });
@@ -55,7 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initAuth();
   }, []);
 
-  const login = async (payload: { user_id?: string; phone?: string }) => {
+  const login = async (payload: { user_id?: string; phone?: string; password?: string }) => {
     setLoading(true);
     try {
       const res = await api.login(payload);
@@ -66,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (payload: { full_name: string; phone?: string; birth_year?: number; sex?: string; role?: string }) => {
+  const register = async (payload: { full_name: string; phone?: string; password: string; birth_year?: number; sex?: string; role?: string }) => {
     setLoading(true);
     try {
       const res = await api.register(payload);
