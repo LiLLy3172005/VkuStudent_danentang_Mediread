@@ -46,11 +46,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ flag, label }) => {
 
 const styles = StyleSheet.create({
   badge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 16,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 14,
     alignSelf: 'flex-start',
     borderWidth: 1,
+    flexShrink: 0,
   },
   badgeHigh: {
     backgroundColor: Colors.highBg,
@@ -69,7 +70,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   text: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   textHigh: {

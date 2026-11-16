@@ -97,17 +97,17 @@ export default function DocumentDetailScreen() {
         {/* Info Card */}
         <View style={styles.infoCard}>
           <View style={styles.docHeaderRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.docTypeTitle}>
+            <View style={styles.docHeaderLeft}>
+              <Text style={styles.docTypeTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
                 {doc.doc_type === 'lab_report' ? 'Kết Quả Xét Nghiệm Y Khoa' : 'Đơn Thuốc Điều Trị'}
               </Text>
               <View style={styles.facilityRow}>
-                <Building2 size={14} color={Colors.primary} />
-                <Text style={styles.facilityText}>{doc.facility_name || 'Bệnh viện / Phòng khám'}</Text>
+                <Building2 size={13} color={Colors.primary} style={{ flexShrink: 0 }} />
+                <Text style={styles.facilityText} numberOfLines={1}>{doc.facility_name || 'Bệnh viện / Phòng khám'}</Text>
               </View>
               <View style={styles.facilityRow}>
-                <Calendar size={14} color={Colors.primary} />
-                <Text style={styles.facilityText}>Ngày khám: {doc.issued_date || 'Gần đây'}</Text>
+                <Calendar size={13} color={Colors.primary} style={{ flexShrink: 0 }} />
+                <Text style={styles.facilityText} numberOfLines={1}>Ngày khám: {doc.issued_date || 'Gần đây'}</Text>
               </View>
             </View>
 
@@ -123,8 +123,9 @@ export default function DocumentDetailScreen() {
                     styles.confirmBadgeText,
                     isConfirmed ? styles.confirmBadgeTextDone : styles.confirmBadgeTextPending,
                   ]}
+                  numberOfLines={1}
                 >
-                  {isConfirmed ? '✓ Đã xác nhận' : '⚠️ Cần kiểm tra'}
+                  {isConfirmed ? '✓ Đã xác nhận' : '⚠️ Cần KT'}
                 </Text>
               </View>
             </View>
@@ -378,8 +379,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
+  docHeaderLeft: {
+    flex: 1,
+    marginRight: 8,
+    flexShrink: 1,
+  },
   docTypeTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
     color: Colors.primaryDark,
     marginBottom: 4,
@@ -391,9 +397,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   facilityText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     color: Colors.textMuted,
+    flex: 1,
+    flexShrink: 1,
   },
   badgeColumn: {
     alignItems: 'flex-end',
@@ -474,12 +482,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   voiceSummaryTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: Colors.primaryDark,
   },
   voiceSummaryDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.textMuted,
     marginTop: 2,
   },
@@ -500,19 +508,21 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   tableTitle: {
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '800',
     color: Colors.primaryDark,
+    flexShrink: 1,
   },
   tableCount: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: Colors.textMuted,
+    flexShrink: 0,
   },
   tableRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 10,
     gap: 12,
   },
@@ -526,7 +536,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   indicatorName: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: Colors.primaryDark,
   },
@@ -537,7 +547,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   indicatorVal: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '900',
     color: Colors.textMain,
   },
@@ -558,6 +568,8 @@ const styles = StyleSheet.create({
   rowRight: {
     alignItems: 'flex-end',
     gap: 6,
+    flexShrink: 0,
+    maxWidth: 100,
   },
   ragSection: {
     gap: 12,
@@ -598,15 +610,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#D97706',
   },
   ragIndicatorName: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '800',
     color: '#92400E',
   },
   ragExplanationText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
     color: Colors.textMain,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   citationsBox: {
     flexDirection: 'row',

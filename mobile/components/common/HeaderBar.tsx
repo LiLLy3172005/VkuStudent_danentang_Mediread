@@ -17,7 +17,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ title, showBack = false, s
 
   return (
     <View style={styles.header}>
-      <View style={styles.left}>
+      <View style={[styles.left, showBack && { paddingRight: 0 }]}>
         {showBack ? (
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
             <ArrowLeft size={22} color={Colors.primaryDark} />
@@ -27,13 +27,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ title, showBack = false, s
             <Text style={styles.brandCross}>✚</Text>
           </View>
         )}
-        <View>
-          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{title}</Text>
           {subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
         </View>
       </View>
 
-      {user && (
+      {/* Only show profile avatar on main screens (not detail/back screens) */}
+      {user && !showBack && (
         <TouchableOpacity
           onPress={() => router.push('/(tabs)/profile' as any)}
           style={styles.profileBadge}
@@ -67,6 +68,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    paddingRight: 8,
+  },
+  titleContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   backBtn: {
     width: 38,
@@ -75,6 +81,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   brandIcon: {
     width: 38,
@@ -83,6 +90,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   brandCross: {
     color: '#FFFFFF',
@@ -90,7 +98,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   title: {
-    fontSize: 18,
+    fontSize: 16.5,
     fontWeight: '800',
     color: Colors.primaryDark,
   },
