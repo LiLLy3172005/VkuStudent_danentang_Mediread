@@ -15,12 +15,15 @@ export function getApiBaseUrl(): string {
   return 'http://localhost:8000';
 }
 
-function getAuthHeader(): HeadersInit {
-  if (typeof window === 'undefined') return {};
-  const token = localStorage.getItem('mediread_jwt_token') || 'demo_token';
-  return {
-    Authorization: `Bearer ${token}`,
+function getAuthHeader(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'ngrok-skip-browser-warning': '69420',
   };
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('mediread_jwt_token') || 'demo_token';
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 const MEDICATION_SCHEDULE_STORAGE_KEY = 'mediread_medication_schedule_v2';
@@ -29,7 +32,11 @@ const LAST_RESET_DATE_KEY = 'mediread_last_schedule_reset_date';
 export const api = {
   async getAccounts(): Promise<AccountSummary[]> {
     const baseUrl = getApiBaseUrl();
-    const res = await fetch(`${baseUrl}/api/v1/auth/accounts`).catch(() => null);
+    const res = await fetch(`${baseUrl}/api/v1/auth/accounts`, {
+      headers: {
+        'ngrok-skip-browser-warning': '69420',
+      },
+    }).catch(() => null);
     if (!res || !res.ok) return [];
     return res.json();
   },
@@ -44,7 +51,10 @@ export const api = {
     const baseUrl = getApiBaseUrl();
     const res = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '69420',
+      },
       body: JSON.stringify({
         user_id: params.user_id,
         phone: params.phone,
@@ -85,7 +95,10 @@ export const api = {
     };
     const res = await fetch(`${baseUrl}/api/v1/auth/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '69420',
+      },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {

@@ -119,6 +119,7 @@ class ApiService {
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      'ngrok-skip-browser-warning': '69420',
       ...(options.headers as Record<string, string>),
     };
 
