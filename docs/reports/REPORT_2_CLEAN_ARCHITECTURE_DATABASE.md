@@ -60,35 +60,14 @@
 
 ## 2. LƯỢC ĐỒ CƠ SỞ DỮ LIỆU & CHÍNH SÁCH BẢO MẬT (DATABASE SCHEMA & SECURITY)
 
-Hệ thống cơ sở dữ liệu quan hệ được triển khai trên **Supabase PostgreSQL** với cấu trúc chuẩn hóa:
+Hệ thống cơ sở dữ liệu quan hệ được triển khai trên **Supabase PostgreSQL** với cấu trúc chuẩn hóa gồm 10 bảng quan hệ:
 
-```
-┌─────────────────┐       1:N       ┌────────────────────────┐
-│    PROFILES     ├─────────────────┤   MEDICAL_DOCUMENTS    │
-│  (Người bệnh)   │                 │ (Phiếu khám/Đơn thuốc) │
-├─────────────────┤                 ├────────────────────────┤
-│ id (UUID, PK)   │                 │ id (UUID, PK)          │
-│ phone (Unique)  │                 │ user_id (UUID, FK)     │
-│ full_name       │                 │ doc_type (Enum)        │
-│ birth_year      │                 │ file_url (Text)        │
-│ sex (nam/nữ)    │                 │ facility_name          │
-│ created_at      │                 │ issued_date            │
-└────────┬────────┘                 └───────────┬────────────┘
-         │                                      │
-         │ 1:N                                  │ 1:N
-         ▼                                      ▼
-┌─────────────────┐                 ┌────────────────────────┐
-│ HEALTH_METRICS  │                 │      LAB_RESULTS       │
-│ (Chỉ số đo đạc) │                 │  (Chỉ số xét nghiệm)   │
-├─────────────────┤                 ├────────────────────────┤
-│ id (UUID, PK)   │                 │ id (UUID, PK)          │
-│ user_id (FK)    │                 │ document_id (UUID, FK) │
-│ metric_type     │                 │ user_id (UUID, FK)     │
-│ value (Numeric) │                 │ indicator_code (CRE...)│
-│ recorded_at     │                 │ value_num (Numeric)    │
-└─────────────────┘                 │ flag (high/low/normal) │
-                                    └────────────────────────┘
-```
+**Sơ đồ Entity-Relationship Diagram (ERD) toàn hệ thống MediRead AI:**
+
+![ERD - Lược đồ cơ sở dữ liệu MediRead AI](database_schema_erd.jpg)
+
+> **Chú thích:** Lược đồ bao gồm 10 bảng quan hệ: `profiles`, `documents`, `extractions`, `lab_results`, `medications`, `schedules`, `dose_logs`, `kb_chunks`, `explanations`, `care_links`. Các quan hệ 1:N và FK đã được thiết lập đầy đủ, bật Row-Level Security (RLS) trên tất cả bảng để bảo vệ quyền riêng tư y tế của bệnh nhân.
+
 
 ### 2.1. Phân quyền và Bảo mật Dữ liệu (Row-Level Security - RLS)
 * Kích hoạt RLS trên tất cả các bảng:

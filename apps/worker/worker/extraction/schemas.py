@@ -3,12 +3,12 @@ MediRead AI - Extraction Data Contracts (Pydantic v2)
 Strict schema validation for LLM outputs.
 """
 
-from typing import List, Optional, Literal, Union
-from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional, Literal, Union, Any
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class LabItemDraft(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     name: str = Field(..., min_length=1, max_length=160, description="Tên chỉ số xét nghiệm")
     value: str = Field(default="", max_length=80, description="Giá trị đo được")
@@ -18,9 +18,23 @@ class LabItemDraft(BaseModel):
         default="unknown", description="Cờ cảnh báo ban đầu từ phiếu"
     )
 
+    @field_validator("flag", mode="before")
+    @classmethod
+    def normalize_flag(cls, v: Any) -> str:
+        if not v:
+            return "unknown"
+        s = str(v).strip().lower()
+        if s in ("high", "cao", "h", "*", "tăng", "+", "dương tính", "pos"):
+            return "high"
+        if s in ("low", "thấp", "l", "giảm", "-", "âm tính", "neg"):
+            return "low"
+        if s in ("normal", "bình thường", "n", "norm"):
+            return "normal"
+        return "unknown"
+
 
 class MedicineItemDraft(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     name: str = Field(..., min_length=1, max_length=160, description="Tên thuốc")
     dosage: Optional[str] = Field(default="", max_length=80, description="Liều dùng, vd: 1 viên, 5mg")
@@ -32,7 +46,7 @@ class MedicineItemDraft(BaseModel):
 
 
 class ExtractionResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     doc_type: Literal["lab_report", "prescription"] = "lab_report"
     facility_name: Optional[str] = Field(default=None, max_length=200, description="Tên bệnh viện / phòng khám")

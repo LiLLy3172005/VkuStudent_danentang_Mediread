@@ -4,6 +4,7 @@ Interacts with Supabase using authenticated RLS context and provides local fallb
 """
 
 import os
+import re
 import uuid
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
@@ -11,6 +12,38 @@ import logging
 from app.config import settings
 
 logger = logging.getLogger("mediread.supabase")
+
+
+def parse_safe_date(raw_date: Any) -> Optional[str]:
+    """Safely normalizes raw date strings into ISO YYYY-MM-DD for PostgreSQL DATE column."""
+    if not raw_date:
+        return None
+    if isinstance(raw_date, (date, datetime)):
+        return raw_date.strftime("%Y-%m-%d")
+    s = str(raw_date).strip()
+    # Check YYYY-MM-DD
+    m = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})", s)
+    if m:
+        try:
+            return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        except Exception:
+            pass
+    # Check DD/MM/YYYY or DD-MM-YYYY
+    m = re.match(r"^(\d{1,2})[/\.-](\d{1,2})[/\.-](\d{4})", s)
+    if m:
+        try:
+            return f"{int(m.group(3)):04d}-{int(m.group(2)):02d}-{int(m.group(1)):02d}"
+        except Exception:
+            pass
+    # Check Vietnamese text: "24 thang 4 nam 2019" or "24 thang 4nam 2019"
+    m = re.search(r"(\d{1,2})\s*(?:tháng|thang|\/|-)\s*(\d{1,2})\s*(?:năm|nam)?\s*(\d{4})", s, re.I)
+    if m:
+        try:
+            d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return f"{y:04d}-{mo:02d}-{d:02d}"
+        except Exception:
+            pass
+    return None
 
 
 class SupabaseService:
@@ -92,6 +125,16 @@ class SupabaseService:
         self._mock_documents[str(doc_id)] = record
         return record
 
+    async def update_document_status(self, document_id: uuid.UUID, status: str) -> None:
+        doc_id_str = str(document_id)
+        if doc_id_str in self._mock_documents:
+            self._mock_documents[doc_id_str]["status"] = status
+        if self._client:
+            try:
+                self._client.table("documents").update({"status": status}).eq("id", doc_id_str).execute()
+            except Exception as exc:
+                logger.error("Supabase update document status failed: %s", exc)
+
     async def get_document(self, document_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Dict[str, Any]]:
         doc_id_str = str(document_id)
         if self._client:
@@ -136,21 +179,11 @@ class SupabaseService:
                 res = self._client.table("documents").select(
                     "id, user_id, doc_type, status, facility_name, issued_date, ocr_confidence, is_pii_masked, created_at"
                 ).eq("user_id", user_str).order("created_at", desc=True).limit(limit).execute()
-                docs = res.data or []
-                if not docs:
-                    # Fallback to recent system documents so new users have sample history to review
-                    fallback_res = self._client.table("documents").select(
-                        "id, user_id, doc_type, status, facility_name, issued_date, ocr_confidence, is_pii_masked, created_at"
-                    ).order("created_at", desc=True).limit(limit).execute()
-                    if fallback_res.data:
-                        docs = fallback_res.data
-                return docs
+                return res.data or []
             except Exception as exc:
                 logger.error("Supabase list documents failed: %s", exc)
 
         docs = [d for d in self._mock_documents.values() if str(d["user_id"]) == user_str]
-        if not docs:
-            docs = list(self._mock_documents.values())
         return sorted(docs, key=lambda x: x["created_at"], reverse=True)[:limit]
 
     async def save_worker_results(
@@ -164,12 +197,13 @@ class SupabaseService:
         user_str = str(user_id)
 
         # 1. Update Document status
+        safe_issued_date = parse_safe_date(results.get("issued_date"))
         update_payload = {
             "status": results["status"],
             "ocr_text": results.get("raw_ocr_text"),
             "ocr_confidence": results.get("ocr_confidence"),
             "facility_name": results.get("facility_name"),
-            "issued_date": results.get("issued_date"),
+            "issued_date": safe_issued_date,
             "is_pii_masked": results.get("is_pii_masked", True),
             "updated_at": datetime.utcnow().isoformat(),
         }
@@ -195,18 +229,50 @@ class SupabaseService:
                         "value_num": lab.get("value_num", 0.0),
                         "unit": lab.get("unit_normalized", ""),
                         "flag": lab.get("flag", "UNKNOWN"),
-                        "measured_at": results.get("issued_date") or date.today().isoformat(),
+                        "measured_at": safe_issued_date or date.today().isoformat(),
                     })
 
         if self._client:
+            # Update Document record safely
             try:
                 self._client.table("documents").update(update_payload).eq("id", doc_id_str).execute()
-                # Insert lab items
-                flag_map = {"NORMAL": "N", "HIGH": "H", "LOW": "L", "N": "N", "H": "H", "L": "L"}
-                lab_id_map = {}
-                for lab in results.get("lab_results", []):
-                    raw_flag_str = str(lab.get("flag") or "").upper()
-                    db_flag = flag_map.get(raw_flag_str)
+            except Exception as doc_exc:
+                logger.warning("Supabase update document with issued_date failed: %s. Retrying without issued_date...", doc_exc)
+                try:
+                    update_payload["issued_date"] = None
+                    self._client.table("documents").update(update_payload).eq("id", doc_id_str).execute()
+                except Exception as retry_exc:
+                    logger.error("Supabase fallback document update failed: %s", retry_exc)
+
+            # Insert lab items
+            lab_id_map = {}
+            for lab in results.get("lab_results", []):
+                try:
+                    raw_val = getattr(lab.get("flag"), "value", lab.get("flag"))
+                    raw_flag_str = str(raw_val or "").upper()
+                    if "HIGH" in raw_flag_str or raw_flag_str == "H":
+                        db_flag = "H"
+                    elif "LOW" in raw_flag_str or raw_flag_str == "L":
+                        db_flag = "L"
+                    elif "NORM" in raw_flag_str or raw_flag_str == "N":
+                        db_flag = "N"
+                    else:
+                        # Fallback evaluation based on value_num and bounds
+                        val_num = lab.get("value_num")
+                        ref_low = lab.get("ref_low")
+                        ref_high = lab.get("ref_high")
+                        if val_num is not None:
+                            if ref_high is not None and val_num > ref_high:
+                                db_flag = "H"
+                            elif ref_low is not None and val_num < ref_low:
+                                db_flag = "L"
+                            elif ref_low is not None or ref_high is not None:
+                                db_flag = "N"
+                            else:
+                                db_flag = None
+                        else:
+                            db_flag = None
+
                     lab_res = self._client.table("lab_results").insert({
                         "user_id": user_str,
                         "document_id": doc_id_str,
@@ -223,9 +289,12 @@ class SupabaseService:
                     }).execute()
                     if lab_res.data and len(lab_res.data) > 0:
                         lab_id_map[lab["name"]] = lab_res.data[0]["id"]
+                except Exception as lab_exc:
+                    logger.error("Supabase insert lab_result failed for %s: %s", lab.get("name"), lab_exc)
 
-                # Insert explanations generated by RAG Explainer
-                for exp in results.get("explanations", []):
+            # Insert explanations generated by RAG Explainer
+            for exp in results.get("explanations", []):
+                try:
                     ind_name = exp.get("indicator_name", "")
                     matched_lab_id = lab_id_map.get(ind_name)
                     cits = list(exp.get("citations", []))
@@ -242,9 +311,12 @@ class SupabaseService:
                         "refusal_reason": exp.get("refusal_reason"),
                         "model": "qwen2.5:7b",
                     }).execute()
+                except Exception as exp_exc:
+                    logger.error("Supabase insert explanation failed: %s", exp_exc)
 
-                # Insert medications
-                for med in results.get("medications", []):
+            # Insert medications
+            for med in results.get("medications", []):
+                try:
                     self._client.table("medications").insert({
                         "user_id": user_str,
                         "document_id": doc_id_str,
@@ -258,8 +330,8 @@ class SupabaseService:
                         "notes": med.get("instructions"),
                         "active": True,
                     }).execute()
-            except Exception as exc:
-                logger.error("Supabase save worker results failed: %s", exc)
+                except Exception as med_exc:
+                    logger.error("Supabase insert medication failed for %s: %s", med.get("name"), med_exc)
 
     async def confirm_extraction(
         self,
@@ -287,23 +359,60 @@ class SupabaseService:
 
     # ---------------------------------------------------------------- Trends & Care Links
 
+    async def get_user_lab_indicators(self, user_id: uuid.UUID) -> List[Dict[str, Any]]:
+        user_str = str(user_id)
+        indicators = []
+        if self._client:
+            try:
+                res = self._client.table("lab_results").select(
+                    "name, normalized_code, value_num, unit, ref_low, ref_high, flag, created_at"
+                ).eq("user_id", user_str).order("created_at", desc=False).execute()
+                if res.data:
+                    grouped = {}
+                    for item in res.data:
+                        code = (item.get("normalized_code") or item.get("name") or "LAB").strip()
+                        name = item.get("name") or code
+                        if code not in grouped:
+                            grouped[code] = {
+                                "code": code,
+                                "name": name,
+                                "unit": item.get("unit") or "",
+                                "low": item.get("ref_low"),
+                                "high": item.get("ref_high"),
+                                "count": 0,
+                                "latest_value": item.get("value_num"),
+                                "latest_flag": item.get("flag"),
+                                "latest_date": str(item.get("created_at", ""))[:10],
+                            }
+                        grouped[code]["count"] += 1
+                        if item.get("value_num") is not None:
+                            grouped[code]["latest_value"] = item.get("value_num")
+                        if item.get("flag"):
+                            grouped[code]["latest_flag"] = item.get("flag")
+                        if item.get("created_at"):
+                            grouped[code]["latest_date"] = str(item.get("created_at", ""))[:10]
+                    indicators = list(grouped.values())
+            except Exception as exc:
+                logger.error("Supabase get_user_lab_indicators failed: %s", exc)
+        return indicators
+
     async def get_lab_trends(self, user_id: uuid.UUID, code: str) -> List[Dict[str, Any]]:
         user_str = str(user_id)
         history = []
-        code_upper = code.upper()
-        code_lower = code.lower()
+        code_upper = code.upper().strip()
+        code_lower = code.lower().strip()
 
         if self._client:
             try:
-                # 1. Look for user's own lab results
+                # 1. Look for user's own lab results only (no fake demo data)
                 res = self._client.table("lab_results").select(
                     "id, document_id, name, normalized_code, value_num, unit, flag, created_at"
-                ).eq("user_id", user_str).execute()
+                ).eq("user_id", user_str).order("created_at", desc=False).execute()
                 if res.data:
                     for item in res.data:
-                        ncode = (item.get("normalized_code") or "").upper()
-                        name = (item.get("name") or "").lower()
-                        if ncode == code_upper or code_lower in name or (code_upper in ncode):
+                        ncode = (item.get("normalized_code") or "").upper().strip()
+                        name = (item.get("name") or "").lower().strip()
+                        if ncode == code_upper or code_lower in name or (code_upper in ncode) or (name and name in code_lower):
                             history.append({
                                 "document_id": item["document_id"],
                                 "name": item["name"],
@@ -313,68 +422,126 @@ class SupabaseService:
                                 "flag": item.get("flag", "N"),
                                 "measured_at": str(item.get("created_at", ""))[:10],
                             })
-
-                # 2. If user has no entries yet, look for any system records matching this code so chart renders beautifully
-                if not history:
-                    all_res = self._client.table("lab_results").select(
-                        "id, document_id, name, normalized_code, value_num, unit, flag, created_at"
-                    ).limit(50).execute()
-                    if all_res.data:
-                        for item in all_res.data:
-                            ncode = (item.get("normalized_code") or "").upper()
-                            name = (item.get("name") or "").lower()
-                            if ncode == code_upper or code_lower in name or (code_upper in ncode):
-                                history.append({
-                                    "document_id": item["document_id"],
-                                    "name": item["name"],
-                                    "normalized_code": ncode or code_upper,
-                                    "value_num": float(item.get("value_num") or 0.0),
-                                    "unit": item.get("unit", ""),
-                                    "flag": item.get("flag", "N"),
-                                    "measured_at": str(item.get("created_at", ""))[:10],
-                                })
             except Exception as exc:
                 logger.error("Supabase get_lab_trends failed: %s", exc)
-
-        if not history and user_str in self._mock_lab_results:
-            for item in self._mock_lab_results[user_str]:
-                if item["normalized_code"].upper() == code_upper or item["name"].lower() == code_lower:
-                    history.append(item)
-
-        # Fallback realistic points if database has no records for this code yet
-        if not history:
-            default_map = {
-                "GLU": [
-                    {"name": "Đường huyết (Glucose)", "normalized_code": "GLU", "value_num": 5.8, "unit": "mmol/L", "flag": "N", "measured_at": "2026-09-10"},
-                    {"name": "Đường huyết (Glucose)", "normalized_code": "GLU", "value_num": 6.1, "unit": "mmol/L", "flag": "N", "measured_at": "2026-10-15"},
-                    {"name": "Đường huyết (Glucose)", "normalized_code": "GLU", "value_num": 5.3, "unit": "mmol/L", "flag": "N", "measured_at": "2026-11-14"},
-                ],
-                "CRE": [
-                    {"name": "Creatinin (Thận)", "normalized_code": "CRE", "value_num": 88.0, "unit": "µmol/L", "flag": "N", "measured_at": "2026-09-10"},
-                    {"name": "Creatinin (Thận)", "normalized_code": "CRE", "value_num": 82.0, "unit": "µmol/L", "flag": "N", "measured_at": "2026-10-15"},
-                    {"name": "Creatinin (Thận)", "normalized_code": "CRE", "value_num": 75.0, "unit": "µmol/L", "flag": "N", "measured_at": "2026-11-14"},
-                ],
-                "CHOL": [
-                    {"name": "Cholesterol toàn phần", "normalized_code": "CHOL", "value_num": 5.8, "unit": "mmol/L", "flag": "H", "measured_at": "2026-09-10"},
-                    {"name": "Cholesterol toàn phần", "normalized_code": "CHOL", "value_num": 5.5, "unit": "mmol/L", "flag": "H", "measured_at": "2026-10-15"},
-                    {"name": "Cholesterol toàn phần", "normalized_code": "CHOL", "value_num": 5.1, "unit": "mmol/L", "flag": "N", "measured_at": "2026-11-14"},
-                ],
-                "AST": [
-                    {"name": "Men gan (AST/GOT)", "normalized_code": "AST", "value_num": 28.0, "unit": "U/L", "flag": "N", "measured_at": "2026-09-10"},
-                    {"name": "Men gan (AST/GOT)", "normalized_code": "AST", "value_num": 26.5, "unit": "U/L", "flag": "N", "measured_at": "2026-10-15"},
-                    {"name": "Men gan (AST/GOT)", "normalized_code": "AST", "value_num": 24.0, "unit": "U/L", "flag": "N", "measured_at": "2026-11-14"},
-                ],
-            }
-            history = default_map.get(code_upper, [])
 
         return history
 
     async def get_care_links(self, user_id: uuid.UUID) -> List[Dict[str, Any]]:
         user_str = str(user_id)
+        if self.is_connected() and self._client:
+            try:
+                res = self._client.table("care_links").select("*").or_(f"patient_id.eq.{user_str},caregiver_id.eq.{user_str}").execute()
+                links = res.data or []
+                if links:
+                    for l in links:
+                        try:
+                            if "patient_name" not in l or not l.get("patient_name"):
+                                p_res = self._client.table("profiles").select("full_name").eq("id", l["patient_id"]).execute()
+                                if p_res.data:
+                                    l["patient_name"] = p_res.data[0].get("full_name")
+                            if "caregiver_name" not in l or not l.get("caregiver_name"):
+                                c_res = self._client.table("profiles").select("full_name").eq("id", l["caregiver_id"]).execute()
+                                if c_res.data:
+                                    l["caregiver_name"] = c_res.data[0].get("full_name")
+                        except Exception:
+                            pass
+                    return links
+            except Exception as exc:
+                logger.error("Supabase get_care_links failed: %s", exc)
+
         return [
             link for link in self._mock_care_links.values()
-            if str(link["patient_id"]) == user_str or str(link["caregiver_id"]) == user_str
+            if str(link.get("patient_id")) == user_str or str(link.get("caregiver_id")) == user_str
         ]
+
+    async def connect_care_link_by_code(self, caregiver_id: uuid.UUID, code_str: str) -> Dict[str, Any]:
+        raw_code = str(code_str or "").strip()
+        for prefix in ("mediread:care:", "mediread://care/", "MR-", "mr-", "MR:"):
+            if raw_code.startswith(prefix):
+                raw_code = raw_code[len(prefix):]
+                break
+
+        # Sanitize code input to strict alphanumeric and hyphen characters to prevent wildcard/injection
+        clean_code = re.sub(r"[^a-zA-Z0-9-]", "", raw_code)
+
+        caregiver_str = str(caregiver_id)
+        if clean_code.lower() == caregiver_str.lower():
+            raise ValueError("Bác/Bạn không thể tự kết nối với chính tài khoản của mình.")
+
+        patient_profile = None
+        if self.is_connected() and self._client:
+            try:
+                # 1. Exact UUID match
+                try:
+                    p_uuid = uuid.UUID(clean_code)
+                    res = self._client.table("profiles").select("*").eq("id", str(p_uuid)).execute()
+                    if res.data:
+                        patient_profile = res.data[0]
+                except ValueError:
+                    pass
+
+                # 2. Prefix match (e.g. "600823")
+                if not patient_profile and len(clean_code) >= 4:
+                    res = self._client.table("profiles").select("*").ilike("id", f"{clean_code}%").execute()
+                    if res.data:
+                        patient_profile = res.data[0]
+
+                # 3. Phone match
+                if not patient_profile:
+                    res = self._client.table("profiles").select("*").eq("phone", clean_code).execute()
+                    if res.data:
+                        patient_profile = res.data[0]
+            except Exception as exc:
+                logger.error("Supabase profile lookup failed: %s", exc)
+
+        if not patient_profile:
+            # Fallback for demo
+            if clean_code.lower().startswith("11111111") or clean_code.upper().startswith("600823"):
+                patient_profile = {
+                    "id": clean_code if len(clean_code) == 36 else "11111111-1111-1111-1111-111111111111",
+                    "full_name": "Bác Trần Văn Minh (Bệnh nhân)",
+                    "role": "patient",
+                }
+            else:
+                raise ValueError("Không tìm thấy hồ sơ người bệnh khớp với mã này. Bác vui lòng kiểm tra lại mã QR hoặc mã kết nối.")
+
+        patient_id = patient_profile["id"]
+        if str(patient_id) == caregiver_str:
+            raise ValueError("Không thể tự kết nối với chính tài khoản của bạn.")
+
+        link_id = uuid.uuid4()
+        link_data = {
+            "id": str(link_id),
+            "patient_id": str(patient_id),
+            "patient_name": patient_profile.get("full_name", "Người bệnh"),
+            "caregiver_id": caregiver_str,
+            "status": "accepted",
+            "created_at": datetime.utcnow().isoformat(),
+        }
+
+        if self.is_connected() and self._client:
+            try:
+                existing = self._client.table("care_links").select("*").eq("patient_id", str(patient_id)).eq("caregiver_id", caregiver_str).execute()
+                if existing.data:
+                    link_id_existing = existing.data[0]["id"]
+                    self._client.table("care_links").update({"status": "accepted"}).eq("id", link_id_existing).execute()
+                    link_data["id"] = link_id_existing
+                else:
+                    self._client.table("care_links").insert({
+                        "id": str(link_id),
+                        "patient_id": str(patient_id),
+                        "caregiver_id": caregiver_str,
+                        "status": "accepted",
+                    }).execute()
+            except Exception as exc:
+                logger.error("Supabase insert care_link failed: %s", exc)
+
+        self._mock_care_links[str(link_data["id"])] = link_data
+        return {
+            "link": link_data,
+            "patient": patient_profile,
+        }
 
     async def request_care_link(self, caregiver_id: uuid.UUID, patient_id: uuid.UUID) -> Dict[str, Any]:
         link_id = uuid.uuid4()
@@ -397,6 +564,36 @@ class SupabaseService:
             link["status"] = "accepted"
             return link
         raise ValueError("link_not_found")
+
+    async def revoke_care_link(self, user_id: uuid.UUID, link_id: uuid.UUID) -> Dict[str, Any]:
+        """Revokes an existing care link; enforces that only the patient or caregiver can revoke."""
+        user_str = str(user_id)
+        link_str = str(link_id)
+
+        if self.is_connected() and self._client:
+            try:
+                res = self._client.table("care_links").select("*").eq("id", link_str).execute()
+                if not res.data:
+                    raise ValueError("Không tìm thấy liên kết cần hủy.")
+                link = res.data[0]
+                if str(link.get("patient_id")) != user_str and str(link.get("caregiver_id")) != user_str:
+                    raise ValueError("Bạn không có quyền hủy liên kết này.")
+
+                self._client.table("care_links").update({"status": "revoked"}).eq("id", link_str).execute()
+                link["status"] = "revoked"
+                return link
+            except ValueError:
+                raise
+            except Exception as exc:
+                logger.error("Supabase revoke_care_link failed: %s", exc)
+
+        if link_str in self._mock_care_links:
+            link = self._mock_care_links[link_str]
+            if str(link.get("patient_id")) != user_str and str(link.get("caregiver_id")) != user_str:
+                raise ValueError("Bạn không có quyền hủy liên kết này.")
+            link["status"] = "revoked"
+            return link
+        return {"id": link_str, "status": "revoked"}
 
 
 db_service = SupabaseService()

@@ -1,7 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+﻿import React from 'react';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import Svg, { Line, Circle, Rect, Text as SvgText } from 'react-native-svg';
+import { AppText as Text } from '../common/AppText';
 import { Colors } from '../../theme/colors';
+import { usePreferences } from '../../contexts/PreferencesContext';
 
 interface DataPoint {
   date: string;
@@ -21,18 +23,23 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
   refLow = 3.9,
   refHigh = 6.4,
 }) => {
+  const { fs } = usePreferences();
+  const { width: screenWidth } = useWindowDimensions();
+
   if (!data || data.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Chưa có đủ dữ liệu lịch sử để vẽ biểu đồ.</Text>
+        <Text style={[styles.emptyText, { fontSize: fs(15) }]}>
+          Chưa có đủ dữ liệu lịch sử để vẽ biểu đồ.
+        </Text>
       </View>
     );
   }
 
-  const width = 320;
-  const height = 180;
-  const paddingX = 35;
-  const paddingY = 25;
+  const width = Math.min(screenWidth - 64, 360);
+  const height = 210;
+  const paddingX = 42;
+  const paddingY = 32;
 
   const values = data.map((d) => d.value);
   const minVal = Math.min(...values, refLow) * 0.85;
@@ -57,6 +64,9 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
   const refLowY = getY(refLow);
   const refHighY = getY(refHigh);
 
+  const valueFontSize = Math.round(fs(11));
+  const dateFontSize = Math.round(fs(9));
+
   return (
     <View style={styles.container}>
       <Svg width={width} height={height}>
@@ -65,8 +75,8 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
           x={paddingX}
           y={refHighY}
           width={width - 2 * paddingX}
-          height={Math.max(refLowY - refHighY, 2)}
-          fill="rgba(220, 252, 231, 0.5)"
+          height={Math.max(refLowY - refHighY, 4)}
+          fill="rgba(220, 252, 231, 0.65)"
         />
         {/* Reference High Line */}
         <Line
@@ -75,8 +85,8 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
           x2={width - paddingX}
           y2={refHighY}
           stroke="#15803D"
-          strokeDasharray="4, 4"
-          strokeWidth="1"
+          strokeDasharray="5, 4"
+          strokeWidth="1.5"
         />
         {/* Reference Low Line */}
         <Line
@@ -85,8 +95,8 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
           x2={width - paddingX}
           y2={refLowY}
           stroke="#15803D"
-          strokeDasharray="4, 4"
-          strokeWidth="1"
+          strokeDasharray="5, 4"
+          strokeWidth="1.5"
         />
 
         {/* Connecting Lines */}
@@ -101,7 +111,7 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
               x2={p.x}
               y2={p.y}
               stroke={Colors.primary}
-              strokeWidth="3"
+              strokeWidth="4"
             />
           );
         })}
@@ -109,12 +119,19 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
         {/* Data Circles & Value Labels */}
         {points.map((p, idx) => (
           <React.Fragment key={`point-${idx}`}>
-            <Circle cx={p.x} cy={p.y} r="5" fill="#FFFFFF" stroke={Colors.primaryDark} strokeWidth="3" />
+            <Circle
+              cx={p.x}
+              cy={p.y}
+              r="7"
+              fill="#FFFFFF"
+              stroke={Colors.primaryDark}
+              strokeWidth="3.5"
+            />
             <SvgText
               x={p.x}
-              y={p.y - 10}
-              fontSize="11"
-              fontWeight="bold"
+              y={p.y - 12}
+              fontSize={valueFontSize}
+              fontWeight="900"
               fill={Colors.primaryDark}
               textAnchor="middle"
             >
@@ -122,8 +139,9 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
             </SvgText>
             <SvgText
               x={p.x}
-              y={height - 6}
-              fontSize="9"
+              y={height - 8}
+              fontSize={dateFontSize}
+              fontWeight="700"
               fill={Colors.textMuted}
               textAnchor="middle"
             >
@@ -136,7 +154,9 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
           <View style={[styles.legendBox, { backgroundColor: '#DCFCE7', borderColor: '#15803D' }]} />
-          <Text style={styles.legendText}>Khoảng chuẩn ({refLow} - {refHigh} {unit})</Text>
+          <Text style={[styles.legendText, { fontSize: fs(12) }]}>
+            Khoảng an toàn ({refLow} - {refHigh} {unit})
+          </Text>
         </View>
       </View>
     </View>
@@ -146,42 +166,42 @@ export const SimpleSvgChart: React.FC<SimpleSvgChartProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 12,
+    borderRadius: 22,
+    padding: 14,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
   },
   emptyContainer: {
     padding: 24,
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    borderRadius: 16,
+    borderRadius: 18,
   },
   emptyText: {
     color: Colors.textMuted,
-    fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   legendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 10,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   legendBox: {
-    width: 14,
-    height: 10,
-    borderRadius: 2,
-    borderWidth: 1,
+    width: 18,
+    height: 12,
+    borderRadius: 3,
+    borderWidth: 1.5,
   },
   legendText: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    fontWeight: '600',
+    color: '#15803D',
+    fontWeight: '700',
   },
 });
+

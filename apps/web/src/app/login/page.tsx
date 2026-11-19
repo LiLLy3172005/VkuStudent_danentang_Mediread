@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   HeartPulse,
   Phone,
+  Lock,
   UserCheck,
   UserPlus,
   ArrowRight,
@@ -26,11 +27,13 @@ export default function LoginPage() {
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loginPhone, setLoginPhone] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginRole, setLoginRole] = useState<'patient' | 'caregiver'>('patient');
 
   // Register form state
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
+  const [regPassword, setRegPassword] = useState('');
   const [regRole, setRegRole] = useState<'patient' | 'caregiver'>('patient');
   const [regSex, setRegSex] = useState<'nam' | 'nu' | 'other'>('nam');
   const [regBirthYear, setRegBirthYear] = useState('1955');
@@ -76,11 +79,16 @@ export default function LoginPage() {
       setErrorMessage('Vui lòng nhập số điện thoại hoặc email.');
       return;
     }
+    if (!loginPassword || loginPassword.length < 6) {
+      setErrorMessage('Vui lòng nhập mật khẩu tối thiểu 6 ký tự.');
+      return;
+    }
     setLoading(true);
     setErrorMessage('');
     try {
       await api.login({
         phone: loginPhone.trim(),
+        password: loginPassword,
         role: loginRole,
       });
       router.push('/history');
@@ -98,6 +106,10 @@ export default function LoginPage() {
       setErrorMessage('Vui lòng nhập họ và tên của bác/bạn.');
       return;
     }
+    if (!regPassword || regPassword.trim().length < 6) {
+      setErrorMessage('Mật khẩu bảo mật phải có tối thiểu 6 ký tự.');
+      return;
+    }
     setLoading(true);
     setErrorMessage('');
     try {
@@ -105,6 +117,7 @@ export default function LoginPage() {
       await api.register({
         full_name: regName.trim(),
         phone: regPhone.trim() || undefined,
+        password: regPassword.trim(),
         role: regRole,
         sex: regSex,
         birth_year: isNaN(year) ? undefined : year,
@@ -294,6 +307,23 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-bold text-[#073F46] mb-1.5">
+                  3. Mật khẩu bảo vệ:
+                </label>
+                <div className="relative">
+                  <Lock className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full bg-[#F8FAFA] border-2 border-[#DDEEEB] rounded-2xl pl-12 pr-4 py-3.5 text-base font-bold text-[#14283A] focus:outline-none focus:border-[#0B6B73]"
+                  />
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -417,6 +447,24 @@ export default function LoginPage() {
                   placeholder="Ví dụ: 0912 345 678"
                   value={regPhone}
                   onChange={(e) => setRegPhone(e.target.value)}
+                  className="w-full bg-[#F8FAFA] border-2 border-[#DDEEEB] rounded-2xl pl-12 pr-4 py-3.5 text-base font-bold text-[#14283A] focus:outline-none focus:border-[#0B6B73]"
+                />
+              </div>
+            </div>
+
+            {/* 5. Mật khẩu bảo mật */}
+            <div>
+              <label className="block text-sm font-bold text-[#073F46] mb-1.5">
+                6. Mật khẩu bảo mật: *
+              </label>
+              <div className="relative">
+                <Lock className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  required
+                  placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+                  value={regPassword}
+                  onChange={(e) => setRegPassword(e.target.value)}
                   className="w-full bg-[#F8FAFA] border-2 border-[#DDEEEB] rounded-2xl pl-12 pr-4 py-3.5 text-base font-bold text-[#14283A] focus:outline-none focus:border-[#0B6B73]"
                 />
               </div>

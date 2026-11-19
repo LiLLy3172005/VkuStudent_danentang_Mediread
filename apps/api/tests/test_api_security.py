@@ -155,13 +155,14 @@ class TestApiSecurity(unittest.TestCase):
         self.assertEqual(res_caregiver.status_code, 200)
 
     def test_auth_login_endpoint(self):
-        # 1. Login with phone number
-        res = self.client.post(
+        # 1. Verify demo 1-click login succeeds
+        from app.auth import DEMO_PATIENT_UUID
+        res_demo = self.client.post(
             "/api/v1/auth/login",
-            json={"phone": "0912345678", "role": "patient"},
+            json={"user_id": str(DEMO_PATIENT_UUID), "role": "patient"},
         )
-        self.assertEqual(res.status_code, 200)
-        data = res.json()
+        self.assertEqual(res_demo.status_code, 200)
+        data = res_demo.json()
         self.assertIn("access_token", data)
         token = data["access_token"]
 
@@ -169,6 +170,13 @@ class TestApiSecurity(unittest.TestCase):
         res_me = self.client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res_me.status_code, 200)
         self.assertEqual(res_me.json()["role"], "patient")
+
+        # 3. Verify security: login via phone without password must be rejected
+        res_unauth = self.client.post(
+            "/api/v1/auth/login",
+            json={"phone": "0912345678", "role": "patient"},
+        )
+        self.assertEqual(res_unauth.status_code, 401)
 
 
 if __name__ == "__main__":

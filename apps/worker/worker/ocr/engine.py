@@ -33,13 +33,14 @@ class OcrEngine:
         det_dir: Optional[str] = None,
         rec_dir: Optional[str] = None,
         cls_dir: Optional[str] = None,
-        cpu_threads: int = 2,
+        cpu_threads: int = 6,          # Tăng lên 6 threads CPU để xử lý nhanh
         use_angle_cls: bool = False,
-        lang: str = "vi",
+        lang: str = "latin",
     ):
         self.det_dir = det_dir or resolve_model_dir(
             "PADDLE_DET_DIR", r"C:\paddle_models\whl\det\en\en_PP-OCRv3_det_infer"
         )
+        # Sử dụng đúng model latin_PP-OCRv3_rec_infer nằm trong C:\paddle_models
         self.rec_dir = rec_dir or resolve_model_dir(
             "PADDLE_REC_DIR", r"C:\paddle_models\whl\rec\latin\latin_PP-OCRv3_rec_infer"
         )
@@ -60,7 +61,7 @@ class OcrEngine:
         kwargs: Dict[str, Any] = {
             "use_angle_cls": self.use_angle_cls,
             "lang": self.lang,
-            "enable_mkldnn": False,
+            "enable_mkldnn": True,
             "cpu_threads": self.cpu_threads,
             "show_log": False,
         }
@@ -70,6 +71,15 @@ class OcrEngine:
             kwargs["rec_model_dir"] = self.rec_dir
         if self.cls_dir:
             kwargs["cls_model_dir"] = self.cls_dir
+
+        # Bảo vệ: không để PaddleOCR rơi về thư mục mặc định ~/.paddleocr
+        # (đường dẫn Windows user có dấu "Lưu Ly" khiến Paddle C++ không mở được file)
+        missing = [n for n, d in (("det", self.det_dir), ("rec", self.rec_dir), ("cls", self.cls_dir)) if not d]
+        if missing:
+            raise RuntimeError(
+                f"Không tìm thấy model PaddleOCR ({', '.join(missing)}) trong C:\\paddle_models. "
+                "Hãy kiểm tra thư mục model hoặc đặt biến PADDLE_DET_DIR / PADDLE_REC_DIR / PADDLE_CLS_DIR."
+            )
 
         self._ocr = PaddleOCR(**kwargs)
 

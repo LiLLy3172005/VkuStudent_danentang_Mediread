@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Image,
   ScrollView,
   StyleSheet,
   Alert,
 } from 'react-native';
+import { AppText as Text } from '../../components/common/AppText';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -81,22 +81,37 @@ export default function ScanScreen() {
       const documentId = uploadRes.document_id;
 
       // Poll document status until worker completes OCR & RAG
-      setProcessingStage('AI đang nhận diện chữ bằng PaddleOCR & tra cứu RAG...');
+      // Dừng ngay khi document có status 'needs_review', 'confirmed', hoặc đã có kết quả
+      setProcessingStage('AI đang nhận diện chữ & tra cứu RAG...');
       let attempts = 0;
-      const maxAttempts = 30; // 30 seconds max
+      const POLL_INTERVAL_MS = 2500; // 2.5 giây / lần (phản hồi nhanh, không nghẽn)
+      const MAX_POLL_ATTEMPTS = 25;  // tối đa ~60 giây
       let completedDoc = null;
 
-      while (attempts < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+      while (attempts < MAX_POLL_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
         attempts += 1;
         try {
           const checkDoc = await api.getDocument(documentId);
-          if (checkDoc && checkDoc.status !== 'uploaded' && checkDoc.status !== 'processing') {
+          // Worker xong khi status là 'needs_review', 'confirmed', 'rejected' hoặc đã có dữ liệu lab/thuốc
+          const hasData = (checkDoc?.lab_results && checkDoc.lab_results.length > 0) ||
+                          (checkDoc?.medications && checkDoc.medications.length > 0);
+          const isDone = checkDoc && (
+            checkDoc.status === 'needs_review' ||
+            checkDoc.status === 'confirmed' ||
+            checkDoc.status === 'rejected' ||
+            hasData
+          );
+
+          if (isDone) {
             completedDoc = checkDoc;
-            break;
+            break; // Dừng polling ngay lập tức!
           }
+          // Cập nhật thông báo tiến trình cho người dùng
+          if (attempts === 2) setProcessingStage('Đang phân tích chỉ số y khoa bằng AI...');
+          if (attempts === 5) setProcessingStage('Đang tra cứu giải thích y khoa (RAG)...');
         } catch {
-          // Worker still writing, wait next cycle
+          // Server đang xử lý, chờ vòng tiếp theo
         }
       }
 
@@ -118,7 +133,9 @@ export default function ScanScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         {/* Document Type Selector */}
         <View style={styles.docTypeWrapper}>
-          <Text style={styles.sectionLabel}>Chọn loại phiếu cần đọc:</Text>
+          <Text style={styles.sectionLabel} allowFontScaling={false}>
+            Chọn loại phiếu cần đọc:
+          </Text>
           <View style={styles.typeButtonsRow}>
             <TouchableOpacity
               style={[styles.typeBtn, docType === 'lab_report' && styles.typeBtnActive]}
@@ -129,7 +146,7 @@ export default function ScanScreen() {
               <Text
                 style={[styles.typeBtnText, docType === 'lab_report' && styles.typeBtnTextActive]}
                 numberOfLines={1}
-                adjustsFontSizeToFit
+                allowFontScaling={false}
               >
                 Phiếu Xét Nghiệm
               </Text>
@@ -144,7 +161,7 @@ export default function ScanScreen() {
               <Text
                 style={[styles.typeBtnText, docType === 'prescription' && styles.typeBtnTextActive]}
                 numberOfLines={1}
-                adjustsFontSizeToFit
+                allowFontScaling={false}
               >
                 Đơn Thuốc Bác Sĩ
               </Text>
@@ -159,21 +176,25 @@ export default function ScanScreen() {
 
             <View style={styles.previewControls}>
               <TouchableOpacity
-                style={styles.retakeBtn}
-                onPress={() => setSelectedImage(null)}
-                activeOpacity={0.7}
-              >
-                <RotateCcw size={18} color={Colors.textMain} />
-                <Text style={styles.retakeBtnText}>Chụp lại</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={styles.confirmUploadBtn}
                 onPress={handleUploadAndProcess}
                 activeOpacity={0.85}
               >
-                <UploadCloud size={20} color="#FFFFFF" />
-                <Text style={styles.confirmUploadText}>Tiến Hành Phân Tích</Text>
+                <UploadCloud size={20} color="#FFFFFF" style={{ flexShrink: 0 }} />
+                <Text style={styles.confirmUploadText} numberOfLines={1}>
+                  Tiến Hành Phân Tích
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.retakeBtn}
+                onPress={() => setSelectedImage(null)}
+                activeOpacity={0.7}
+              >
+                <RotateCcw size={18} color={Colors.textMain} style={{ flexShrink: 0 }} />
+                <Text style={styles.retakeBtnText} numberOfLines={1}>
+                  Chụp lại hoặc chọn ảnh khác
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -186,8 +207,10 @@ export default function ScanScreen() {
               <View style={[styles.corner, styles.cornerBL]} />
               <View style={[styles.corner, styles.cornerBR]} />
 
-              <Camera size={48} color={Colors.primary} style={{ opacity: 0.8 }} />
-              <Text style={styles.guideText}>Đặt phiếu xét nghiệm hoặc đơn thuốc ngay ngắn trong khung hình</Text>
+              <Camera size={44} color={Colors.primary} style={{ opacity: 0.8 }} />
+              <Text style={styles.guideText} allowFontScaling={false}>
+                Đặt phiếu xét nghiệm hoặc đơn thuốc ngay ngắn trong khung hình
+              </Text>
             </View>
 
             {/* Action Buttons: Camera and Library */}
@@ -197,8 +220,10 @@ export default function ScanScreen() {
                 onPress={handlePickCamera}
                 activeOpacity={0.85}
               >
-                <Camera size={24} color="#FFFFFF" />
-                <Text style={styles.primaryCaptureText}>Mở Máy Ảnh Chụp Ngay</Text>
+                <Camera size={22} color="#FFFFFF" style={{ flexShrink: 0 }} />
+                <Text style={styles.primaryCaptureText} numberOfLines={1} allowFontScaling={false}>
+                  Mở Máy Ảnh Chụp Ngay
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -206,8 +231,10 @@ export default function ScanScreen() {
                 onPress={handlePickLibrary}
                 activeOpacity={0.7}
               >
-                <ImageIcon size={20} color={Colors.primaryDark} />
-                <Text style={styles.secondaryPickerText}>Chọn ảnh sẵn từ Thư viện</Text>
+                <ImageIcon size={18} color={Colors.primaryDark} style={{ flexShrink: 0 }} />
+                <Text style={styles.secondaryPickerText} numberOfLines={1} allowFontScaling={false}>
+                  Chọn ảnh sẵn từ Thư viện
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -216,12 +243,20 @@ export default function ScanScreen() {
         {/* Elderly Tips Card */}
         <View style={styles.tipsCard}>
           <View style={styles.tipsHeader}>
-            <AlertTriangle size={18} color="#C2410C" />
-            <Text style={styles.tipsTitle}>Mẹo nhỏ để đọc kết quả chuẩn xác nhất:</Text>
+            <AlertTriangle size={18} color="#C2410C" style={{ flexShrink: 0 }} />
+            <Text style={styles.tipsTitle} allowFontScaling={false}>
+              Mẹo nhỏ để đọc kết quả chuẩn xác nhất:
+            </Text>
           </View>
-          <Text style={styles.tipItem}>• Giữ yên tay, chụp nơi đủ ánh sáng, tránh bị bóng tay che khuất.</Text>
-          <Text style={styles.tipItem}>• Trải phẳng tờ giấy trước khi chụp, chụp thẳng đứng từ trên xuống.</Text>
-          <Text style={styles.tipItem}>• Hệ thống tự động xóa tên và địa chỉ để bảo vệ thông tin riêng tư.</Text>
+          <Text style={styles.tipItem} maxFontSizeMultiplier={1.1}>
+            • Giữ yên tay, chụp nơi đủ ánh sáng, tránh bị bóng tay che khuất.
+          </Text>
+          <Text style={styles.tipItem} maxFontSizeMultiplier={1.1}>
+            • Trải phẳng tờ giấy trước khi chụp, chụp thẳng đứng từ trên xuống.
+          </Text>
+          <Text style={styles.tipItem} maxFontSizeMultiplier={1.1}>
+            • Hệ thống tự động xóa tên và địa chỉ để bảo vệ thông tin riêng tư.
+          </Text>
         </View>
       </ScrollView>
 
@@ -374,40 +409,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   previewControls: {
-    flexDirection: 'row',
     gap: 12,
+    width: '100%',
+  },
+  confirmUploadBtn: {
+    width: '100%',
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 52,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  confirmUploadText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    flexShrink: 0,
   },
   retakeBtn: {
-    flex: 1,
+    width: '100%',
     backgroundColor: Colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 50,
+    gap: 8,
+    height: 48,
     borderRadius: 14,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
   },
   retakeBtnText: {
     fontSize: 14,
     fontWeight: '700',
     color: Colors.textMain,
-  },
-  confirmUploadBtn: {
-    flex: 2,
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 50,
-    borderRadius: 14,
-  },
-  confirmUploadText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
   },
   tipsCard: {
     backgroundColor: Colors.warningBg,
@@ -424,7 +466,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   tipsTitle: {
-    fontSize: 14,
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 13.5,
     fontWeight: '800',
     color: Colors.warningText,
   },

@@ -96,16 +96,23 @@ def verify_supabase_jwt(token: str) -> Dict[str, Any]:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    # 3. Fallback unverified decode for development without secret configured
-    try:
-        payload = jwt.decode(clean_token, options={"verify_signature": False})
-        return payload
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"invalid_token: {str(exc)}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # 3. Development only fallback when secret is explicitly unconfigured in local test
+    if settings.APP_ENV in ("development", "local", "test"):
+        try:
+            payload = jwt.decode(clean_token, options={"verify_signature": False})
+            return payload
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"invalid_token: {str(exc)}",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    # In production environments, rejecting unverified tokens is mandatory
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="server_jwt_secret_misconfigured",
+    )
 
 
 def get_current_user(authorization: Optional[str] = Header(None)) -> AuthenticatedUser:

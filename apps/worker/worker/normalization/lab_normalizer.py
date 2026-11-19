@@ -140,40 +140,81 @@ def parse_range_bounds(text: str) -> Tuple[Optional[float], Optional[float]]:
 # ---------------------------------------------------------------- Medical Reference Table
 
 def norm_name(s: str) -> str:
+    """Chuẩn hóa chuỗi tên xét nghiệm, loại bỏ dấu và các tiền tố kỹ thuật OCR thường gặp."""
     s = unicodedata.normalize("NFD", str(s or "")).encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-z0-9]", "", s.lower())
+    cleaned = re.sub(r"[^a-z0-9]", "", s.lower())
+    # Loại bỏ tiền tố hành chính phổ biến trên phiếu xét nghiệm VN để tăng độ khớp
+    for prefix in ("dinhluong", "dinhlurong", "xetnghiem", "soluong", "chiso", "tile", "tyle", "donvi"):
+        if cleaned.startswith(prefix) and len(cleaned) > len(prefix) + 2:
+            cleaned = cleaned[len(prefix):]
+            break
+    return cleaned
 
 
 INTERNAL_REFERENCE_KB = [
-    {"code": "GLU", "name": "Glucose", "aliases": ["glucose", "glu", "duonghuyet"], "unit": "mmol/L", "range": (3.9, 6.4)},
-    {"code": "HBA1C", "name": "HbA1C", "aliases": ["hba1c"], "unit": "%", "range": (4.8, 6.0)},
-    {"code": "URE", "name": "Ure", "aliases": ["ure", "urea"], "unit": "mmol/L", "range": (2.5, 7.5)},
-    {"code": "CREAT", "name": "Creatinin", "aliases": ["creatinin", "creatinine"], "unit": "µmol/L", "range": {"nam": (62, 120), "nu": (53, 100)}},
-    {"code": "URIC", "name": "Acid uric", "aliases": ["aciduric", "uricacid"], "unit": "µmol/L", "range": {"nam": (180, 420), "nu": (150, 360)}},
-    {"code": "CHOL", "name": "Cholesterol", "aliases": ["cholesterol", "cholesterolph"], "unit": "mmol/L", "range": (3.9, 5.2)},
-    {"code": "TRIG", "name": "Triglycerid", "aliases": ["triglycerid", "triglyceride", "tg"], "unit": "mmol/L", "range": (0.46, 1.88)},
-    {"code": "HDL", "name": "HDL-cho", "aliases": ["hdlcho", "hdlc", "hdl", "cholesterolhdl"], "unit": "mmol/L", "range": (0.9, None)},
-    {"code": "LDL", "name": "LDL-cho", "aliases": ["ldlcho", "ldlc", "ldl", "cholesterolldl"], "unit": "mmol/L", "range": (None, 3.4)},
-    {"code": "PROT", "name": "Protein T.P", "aliases": ["proteintp", "protein"], "unit": "g/L", "range": (65, 82)},
-    {"code": "ALB", "name": "Albumin", "aliases": ["albumin", "albumine"], "unit": "g/L", "range": (35, 50)},
-    {"code": "GLOB", "name": "Globulin", "aliases": ["globulin"], "unit": "g/L", "range": (24, 38)},
-    {"code": "NA", "name": "Na+", "aliases": ["na", "natri"], "unit": "mmol/L", "range": (135, 145)},
-    {"code": "K", "name": "K+", "aliases": ["k", "kali"], "unit": "mmol/L", "range": (3.5, 5.0)},
-    {"code": "CL", "name": "Cl-", "aliases": ["cl", "cr", "clo"], "unit": "mmol/L", "range": (98, 106)},
-    {"code": "CA", "name": "Calci", "aliases": ["calci", "calcium", "ca"], "unit": "mmol/L", "range": (2.15, 2.60)},
-    {"code": "PHOS", "name": "Phospho", "aliases": ["phospho", "phosphorus"], "unit": "mmol/L", "range": {"adult": (0.9, 1.5), "child": (1.3, 2.2)}},
-    {"code": "AST", "name": "AST (GOT)", "aliases": ["ast", "got", "sgot"], "unit": "U/L", "range": (None, 37)},
-    {"code": "ALT", "name": "ALT (GPT)", "aliases": ["alt", "gpt", "sgpt"], "unit": "U/L", "range": (None, 41)},
-    {"code": "GGT", "name": "GGT", "aliases": ["ggt"], "unit": "U/L", "range": {"nam": (11, 50), "nu": (7, 32)}},
-    {"code": "BILI_TP", "name": "Bilirubin TP", "aliases": ["bilirubintp", "bilirubintoanphan"], "unit": "µmol/L", "range": (None, 17)},
-    {"code": "KET", "name": "Ketone (KET)", "aliases": ["ketone", "ket", "ketoneket"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
-    {"code": "NIT", "name": "Nitrit (NIT)", "aliases": ["nitrit", "nit", "nitritnit", "nitrite"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
-    {"code": "BIL_U", "name": "Bilirubin (BIL)", "aliases": ["bilirubin", "bil", "bilirubinbil"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
-    {"code": "PRO_U", "name": "Protein niệu (PRO)", "aliases": ["protein", "pro", "proteinpro"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
-    {"code": "LEU_U", "name": "Bạch cầu niệu (LEU)", "aliases": ["bachcau", "leu", "bachcauleu", "leukocytes"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
-    {"code": "ERY_U", "name": "Hồng cầu niệu (ERY)", "aliases": ["hongcau", "ery", "haneclu", "hanecluery", "erythrocytes"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
-    {"code": "URO", "name": "Urobilinogen (URO)", "aliases": ["urobilinogen", "uro", "urobilinogenuro"], "unit": "mg/dL", "range": (0.2, 1.0)},
-    {"code": "PH_U", "name": "pH nước tiểu", "aliases": ["ph", "phnuoctieu"], "unit": "", "range": (4.8, 7.5)},
+    # Huyết học - Công thức máu toàn phần (CBC)
+    {"code": "WBC", "name": "Số lượng bạch cầu (WBC)", "aliases": ["wbc", "bachcau", "soluongbachcau", "bachcaumau", "leukocytes", "whitebloodcells"], "unit": "G/L", "range": (4.0, 10.0)},
+    {"code": "RBC", "name": "Số lượng hồng cầu (RBC)", "aliases": ["rbc", "hongcau", "soluonghongcau", "hongcaumau", "erythrocytes", "redbloodcells"], "unit": "T/L", "range": {"nam": (4.2, 5.8), "nu": (3.8, 5.0)}},
+    {"code": "HGB", "name": "Huyết sắc tố (Hb/HGB)", "aliases": ["hgb", "hb", "hemoglobin", "huyetsacto", "luonghuyetsacto"], "unit": "g/L", "range": {"nam": (130, 175), "nu": (120, 155)}},
+    {"code": "HCT", "name": "Dung tích hồng cầu (HCT)", "aliases": ["hct", "hematocrit", "thetichkhoihongcau", "dungtichhongcau"], "unit": "%", "range": {"nam": (0.39, 0.49), "nu": (0.33, 0.43)}},
+    {"code": "PLT", "name": "Số lượng tiểu cầu (PLT)", "aliases": ["plt", "tieucau", "soluongtieucau", "platelets", "tieucaumau"], "unit": "G/L", "range": (150, 450)},
+    {"code": "MCV", "name": "Thể tích trung bình HC (MCV)", "aliases": ["mcv", "thetichtrungbinhhongcau"], "unit": "fL", "range": (80, 100)},
+    {"code": "MCH", "name": "Lượng HST trung bình HC (MCH)", "aliases": ["mch"], "unit": "pg", "range": (27, 32)},
+    {"code": "MCHC", "name": "Nồng độ HST trung bình HC (MCHC)", "aliases": ["mchc"], "unit": "g/L", "range": (320, 360)},
+    {"code": "RDW", "name": "Dải phân bố kích thước HC (RDW)", "aliases": ["rdw", "rdwcv", "rdwsd"], "unit": "%", "range": (11.5, 14.5)},
+    {"code": "NEU", "name": "Bạch cầu trung tính (NEU%)", "aliases": ["neu", "neutrophil", "neutrophils", "trungtinh", "bachcautrungtinh", "neu%"], "unit": "%", "range": (40, 74)},
+    {"code": "LYM", "name": "Bạch cầu Lympho (LYM%)", "aliases": ["lym", "lymphocyte", "lymphocytes", "bachcaulympho", "lym%"], "unit": "%", "range": (20, 40)},
+    {"code": "MONO", "name": "Bạch cầu Mono (MONO%)", "aliases": ["mono", "monocyte", "monocytes", "bachcaumono", "mono%"], "unit": "%", "range": (2, 8)},
+    {"code": "EOS", "name": "Bạch cầu ái toan (EOS%)", "aliases": ["eos", "eosinophil", "eosinophils", "bachcauaitoan", "aitoan", "eos%"], "unit": "%", "range": (0, 7)},
+    {"code": "BASO", "name": "Bạch cầu ái kiềm (BASO%)", "aliases": ["baso", "basophil", "basophils", "bachcauaikiem", "aikiem", "baso%"], "unit": "%", "range": (0, 1.5)},
+
+    # Sinh hóa - Đường huyết & Chuyển hóa
+    {"code": "GLU", "name": "Đường huyết lúc đói (Glucose)", "aliases": ["glucose", "glu", "duonghuyet", "duongmau", "dinhluongglucose"], "unit": "mmol/L", "range": (3.9, 6.4)},
+    {"code": "HBA1C", "name": "Chỉ số đường huyết 3 tháng (HbA1C)", "aliases": ["hba1c", "hemoglobina1c"], "unit": "%", "range": (4.8, 6.0)},
+
+    # Chức năng thận & Acid uric
+    {"code": "URE", "name": "Định lượng Ure máu", "aliases": ["ure", "urea", "uremau", "dinhluongure"], "unit": "mmol/L", "range": (2.5, 7.5)},
+    {"code": "CREAT", "name": "Định lượng Creatinin (Chức năng thận)", "aliases": ["creatinin", "creatinine", "creatininmau", "dinhluongcreatinin"], "unit": "µmol/L", "range": {"nam": (62, 120), "nu": (53, 100)}},
+    {"code": "URIC", "name": "Định lượng Acid Uric (Nguy cơ Gút)", "aliases": ["aciduric", "uricacid", "aciduricmau", "dinhluongaciduric"], "unit": "µmol/L", "range": {"nam": (180, 420), "nu": (150, 360)}},
+
+    # Mỡ máu (Lipid máu)
+    {"code": "CHOL", "name": "Cholesterol toàn phần", "aliases": ["cholesterol", "cholesteroltoanphan", "cholesteroltp", "dinhluongcholesterol"], "unit": "mmol/L", "range": (3.9, 5.2)},
+    {"code": "TRIG", "name": "Triglycerid (Mỡ máu)", "aliases": ["triglycerid", "triglyceride", "tg", "dinhluongtriglycerid"], "unit": "mmol/L", "range": (0.46, 1.88)},
+    {"code": "HDL", "name": "HDL-Cholesterol (Mỡ tốt)", "aliases": ["hdlcho", "hdlc", "hdl", "cholesterolhdl", "hdlcholesterol"], "unit": "mmol/L", "range": (0.9, None)},
+    {"code": "LDL", "name": "LDL-Cholesterol (Mỡ xấu)", "aliases": ["ldlcho", "ldlc", "ldl", "cholesterolldl", "ldlcholesterol"], "unit": "mmol/L", "range": (None, 3.4)},
+
+    # Protein & Albumin huyết thanh
+    {"code": "PROT", "name": "Protein toàn phần", "aliases": ["proteintp", "protein", "proteintoanphan", "dinhluongproteintoan", "dinhluongproteintoanphan"], "unit": "g/L", "range": (65, 82)},
+    {"code": "ALB", "name": "Albumin huyết thanh", "aliases": ["albumin", "albumine", "albuminmau", "dinhluongalbumin", "dinhlurongalbumin"], "unit": "g/L", "range": (35, 50)},
+    {"code": "GLOB", "name": "Globulin huyết thanh", "aliases": ["globulin"], "unit": "g/L", "range": (24, 38)},
+
+    # Men gan & Mật
+    {"code": "AST", "name": "Men gan AST (SGOT)", "aliases": ["ast", "got", "sgot", "menganast", "dinhluongast"], "unit": "U/L", "range": (None, 37)},
+    {"code": "ALT", "name": "Men gan ALT (SGPT)", "aliases": ["alt", "gpt", "sgpt", "menganalt", "dinhluongalt"], "unit": "U/L", "range": (None, 41)},
+    {"code": "GGT", "name": "Men gan GGT", "aliases": ["ggt", "menganggt", "dinhluongggt"], "unit": "U/L", "range": {"nam": (11, 50), "nu": (7, 32)}},
+    {"code": "BILI_TP", "name": "Bilirubin toàn phần", "aliases": ["bilirubintp", "bilirubintoanphan", "bilirubin"], "unit": "µmol/L", "range": (None, 17)},
+
+    # Điện giải đồ
+    {"code": "NA", "name": "Điện giải đồ Natri (Na+)", "aliases": ["na", "natri", "natrimau"], "unit": "mmol/L", "range": (135, 145)},
+    {"code": "K", "name": "Điện giải đồ Kali (K+)", "aliases": ["k", "kali", "kalimau"], "unit": "mmol/L", "range": (3.5, 5.0)},
+    {"code": "CL", "name": "Điện giải đồ Clo (Cl-)", "aliases": ["cl", "cr", "clo", "clomau", "clorua"], "unit": "mmol/L", "range": (98, 106)},
+    {"code": "CA", "name": "Định lượng Calci toàn phần", "aliases": ["calci", "calcium", "ca", "calcimau"], "unit": "mmol/L", "range": (2.15, 2.60)},
+    {"code": "PHOS", "name": "Định lượng Phospho máu", "aliases": ["phospho", "phosphorus"], "unit": "mmol/L", "range": {"adult": (0.9, 1.5), "child": (1.3, 2.2)}},
+
+    # Tuyến giáp
+    {"code": "TSH", "name": "Hormone tuyến giáp (TSH)", "aliases": ["tsh", "hormonetsh"], "unit": "µIU/mL", "range": (0.27, 4.2)},
+    {"code": "FT3", "name": "Triiodothyronine tự do (FT3)", "aliases": ["ft3", "freet3"], "unit": "pmol/L", "range": (3.1, 6.8)},
+    {"code": "FT4", "name": "Thyroxine tự do (FT4)", "aliases": ["ft4", "freet4"], "unit": "pmol/L", "range": (12.0, 22.0)},
+
+    # Nước tiểu 10 thông số
+    {"code": "KET", "name": "Ketone nước tiểu (KET)", "aliases": ["ketone", "ket", "ketoneket"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "NIT", "name": "Nitrit nước tiểu (NIT)", "aliases": ["nitrit", "nit", "nitritnit", "nitrite"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "BIL_U", "name": "Bilirubin nước tiểu (BIL)", "aliases": ["bilirubin", "bil", "bilirubinbil"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "PRO_U", "name": "Protein nước tiểu (PRO)", "aliases": ["protein", "pro", "proteinpro"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "LEU_U", "name": "Bạch cầu nước tiểu (LEU)", "aliases": ["bachcau", "leu", "bachcauleu", "leukocytes"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "ERY_U", "name": "Hồng cầu nước tiểu (ERY)", "aliases": ["hongcau", "ery", "haneclu", "hanecluery", "erythrocytes"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
+    {"code": "URO", "name": "Urobilinogen nước tiểu (URO)", "aliases": ["urobilinogen", "uro", "urobilinogenuro"], "unit": "mg/dL", "range": (0.2, 1.0)},
+    {"code": "PH_U", "name": "Độ pH nước tiểu", "aliases": ["ph", "phnuoctieu"], "unit": "", "range": (4.8, 7.5)},
 ]
 
 
@@ -185,6 +226,16 @@ def match_internal_indicator(raw_name: str) -> Optional[Dict[str, Any]]:
     for entry in INTERNAL_REFERENCE_KB:
         if k in [norm_name(a) for a in entry["aliases"]]:
             return entry
+
+    # Thử bóc tách từ viết tắt trong ngoặc hoặc các từ đơn (ví dụ: "Bạch cầu (WBC)" -> "WBC")
+    sub_tokens = re.findall(r"[a-zA-Z0-9]+", str(raw_name or ""))
+    for tok in sub_tokens:
+        tk = norm_name(tok)
+        if len(tk) >= 2:
+            for entry in INTERNAL_REFERENCE_KB:
+                if tk in [norm_name(a) for a in entry["aliases"]]:
+                    return entry
+
     for entry in INTERNAL_REFERENCE_KB:
         for alias in entry["aliases"]:
             if difflib.SequenceMatcher(None, k, norm_name(alias)).ratio() >= 0.85:

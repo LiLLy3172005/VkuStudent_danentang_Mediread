@@ -2,7 +2,7 @@
 MediRead AI - Production FastAPI Application
 Senior Architecture: Modular, Async, Decoupled Worker, Rate-Limited, Secure.
 """
-
+import torch 
 import sys
 import time
 import uuid
@@ -35,6 +35,22 @@ logger = logging.getLogger("mediread.api")
 async def lifespan(app: FastAPI):
     """Application lifespan: checks dependencies at startup, clears on shutdown."""
     logger.info("Starting MediRead AI Production API on %s:%s...", settings.APP_HOST, settings.APP_PORT)
+    
+    # Warmup models in background so first user request doesn't wait for cold weights loading
+    import threading
+    def _warmup():
+        try:
+            from worker.ocr.engine import OcrEngine
+            from worker.rag.rag_explainer import RagExplainer
+            ocr = OcrEngine.create_default()
+            ocr._init_model()
+            rag = RagExplainer()
+            rag._init_vector_db()
+            logger.info("MediRead AI Models (PaddleOCR & ChromaDB RAG) successfully warmed up in memory.")
+        except Exception as e:
+            logger.warning("Model warmup warning: %s", e)
+
+    threading.Thread(target=_warmup, daemon=True).start()
     yield
     logger.info("Shutting down MediRead AI API...")
 
@@ -93,6 +109,8 @@ async def security_and_timing_middleware(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
 
     # Redacted log without PII
     logger.info(

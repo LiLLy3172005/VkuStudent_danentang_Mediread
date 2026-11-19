@@ -2,7 +2,18 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, UploadCloud, ShieldAlert, CheckCircle, AlertCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import {
+  Camera,
+  UploadCloud,
+  ShieldAlert,
+  CheckCircle,
+  AlertCircle,
+  ArrowRight,
+  Loader2,
+  Sparkles,
+  Pill,
+  FileSpreadsheet,
+} from 'lucide-react';
 import { api } from '../../lib/api';
 import { TTSPlayer } from '../../components/Footer';
 
@@ -13,7 +24,6 @@ export default function ScanPage() {
   const [docType, setDocType] = useState<'lab_report' | 'prescription'>('lab_report');
   const [patientSex, setPatientSex] = useState<'unknown' | 'nam' | 'nu'>('unknown');
   const [ageGroup, setAgeGroup] = useState<'unknown' | 'adult' | 'child'>('unknown');
-  const [maskPii, setMaskPii] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -38,9 +48,8 @@ export default function ScanPage() {
       setErrorMsg(null);
       setUploadProgress(20);
 
-      // Simulate step progress for user reassurance
-      const timer1 = setTimeout(() => setUploadProgress(50), 600);
-      const timer2 = setTimeout(() => setUploadProgress(85), 1400);
+      const timer1 = setTimeout(() => setUploadProgress(50), 800);
+      const timer2 = setTimeout(() => setUploadProgress(85), 1800);
 
       const res = await api.uploadDocument(file, docType, patientSex, ageGroup);
       clearTimeout(timer1);
@@ -52,12 +61,12 @@ export default function ScanPage() {
     } catch (err: any) {
       setIsUploading(false);
       setUploadProgress(0);
-      setErrorMsg(err.message || 'Tải ảnh lên thất bại. Vui lòng kiểm tra lại kết nối.');
+      setErrorMsg(err.message || 'Tải ảnh lên thất bại. Vui lòng kiểm tra lại kết nối mạng.');
     }
   };
 
   const instructionSpeech =
-    'Để AI nhận diện rõ ràng, bác hãy chụp ảnh phiếu khám thật thẳng, đủ ánh sáng, và không bị mờ hay gập nếp nhé.';
+    'Để AI nhận diện rõ ràng nhất, bác hãy chụp ảnh phiếu khám thật thẳng, đủ ánh sáng, và không bị mờ hay gập nếp nhé.';
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -66,7 +75,7 @@ export default function ScanPage() {
         <div>
           <h1 className="text-3xl font-black text-[#073F46]">Chụp & Quét Phiếu Khám</h1>
           <p className="text-[#5B6B77] text-base mt-1">
-            Số hóa kết quả xét nghiệm sinh hóa và đơn thuốc bằng trí tuệ nhân tạo
+            Số hóa kết quả xét nghiệm sinh hóa và đơn thuốc bác sĩ bằng trí tuệ nhân tạo MediRead AI
           </p>
         </div>
         <TTSPlayer text={instructionSpeech} label="Nghe hướng dẫn chụp" />
@@ -96,11 +105,16 @@ export default function ScanPage() {
                   : 'border-gray-200 hover:border-[#0B6B73]/50 text-[#5B6B77] font-semibold'
               }`}
             >
-              <div>
-                <div className="text-lg">🧪 Phiếu xét nghiệm sinh hóa</div>
-                <div className="text-xs text-[#5B6B77] mt-1">Glucose, Mỡ máu, Men gan, Axit uric...</div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/70 text-[#0B6B73] flex items-center justify-center font-bold">
+                  <FileSpreadsheet className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-lg">Phiếu xét nghiệm sinh hóa</div>
+                  <div className="text-xs text-[#5B6B77] mt-0.5">Glucose, Mỡ máu, Men gan, Axit uric...</div>
+                </div>
               </div>
-              {docType === 'lab_report' && <CheckCircle className="w-6 h-6 text-[#0B6B73]" />}
+              {docType === 'lab_report' && <CheckCircle className="w-6 h-6 text-[#0B6B73] flex-shrink-0" />}
             </button>
 
             <button
@@ -112,35 +126,35 @@ export default function ScanPage() {
                   : 'border-gray-200 hover:border-[#0B6B73]/50 text-[#5B6B77] font-semibold'
               }`}
             >
-              <div>
-                <div className="text-lg">💊 Đơn thuốc bác sĩ kê</div>
-                <div className="text-xs text-[#5B6B77] mt-1">Tên thuốc, liều lượng, số cữ uống mỗi ngày</div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/70 text-[#0B6B73] flex items-center justify-center font-bold">
+                  <Pill className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-lg">Đơn thuốc bác sĩ kê</div>
+                  <div className="text-xs text-[#5B6B77] mt-0.5">Tên thuốc, hàm lượng, cữ uống Sáng / Tối...</div>
+                </div>
               </div>
-              {docType === 'prescription' && <CheckCircle className="w-6 h-6 text-[#0B6B73]" />}
+              {docType === 'prescription' && <CheckCircle className="w-6 h-6 text-[#0B6B73] flex-shrink-0" />}
             </button>
           </div>
         </div>
 
-        {/* Step 2: Patient Context (Sex & Age for accurate reference ranges) */}
+        {/* Step 2: Patient Demographic Context (for HMU range matching) */}
         {docType === 'lab_report' && (
-          <div className="bg-[#F8FAFA] border border-[#DDEEEB] rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2 text-base font-extrabold text-[#073F46]">
-              <Sparkles className="w-5 h-5 text-[#0B6B73]" />
-              <span>2. Thông tin đối chiếu khoảng tham chiếu sinh hóa:</span>
-            </div>
-            <p className="text-sm text-[#5B6B77]">
-              Khoảng chuẩn của một số chỉ số (Creatinin, Acid uric, Phospho) phụ thuộc vào giới tính và độ tuổi. Bác có thể chọn bên dưới hoặc để &apos;Chưa rõ&apos; để AI yêu cầu kiểm tra kỹ.
-            </p>
-
+          <div className="space-y-3 bg-[#F8FAFA] p-5 rounded-2xl border border-[#DDEEEB]">
+            <label className="block text-base font-extrabold text-[#073F46]">
+              2. Thông tin hỗ trợ đối chiếu khoảng chuẩn HMU:
+            </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-bold text-[#14283A] mb-1.5">Giới tính người bệnh:</label>
+                <label className="block text-sm font-bold text-[#14283A] mb-1.5">Giới tính:</label>
                 <select
                   value={patientSex}
                   onChange={(e) => setPatientSex(e.target.value as any)}
                   className="w-full bg-white border border-[#DDEEEB] rounded-xl px-4 py-3 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-[#0B6B73]"
                 >
-                  <option value="unknown">Chưa rõ / Tự động</option>
+                  <option value="unknown">Chưa rõ / Tự động nhận diện</option>
                   <option value="nam">Nam</option>
                   <option value="nu">Nữ</option>
                 </select>
@@ -153,7 +167,7 @@ export default function ScanPage() {
                   onChange={(e) => setAgeGroup(e.target.value as any)}
                   className="w-full bg-white border border-[#DDEEEB] rounded-xl px-4 py-3 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-[#0B6B73]"
                 >
-                  <option value="unknown">Chưa rõ / Tự động</option>
+                  <option value="unknown">Chưa rõ / Tự động nhận diện</option>
                   <option value="adult">Người lớn (NL)</option>
                   <option value="child">Trẻ em (TE)</option>
                 </select>
@@ -165,7 +179,7 @@ export default function ScanPage() {
         {/* Step 3: Photo Upload Dropzone */}
         <div className="space-y-3">
           <label className="block text-lg font-extrabold text-[#073F46]">
-            3. Chọn ảnh chụp phiếu khám:
+            {docType === 'lab_report' ? '3.' : '2.'} Chọn hoặc chụp ảnh phiếu khám:
           </label>
 
           <div className="border-3 border-dashed border-[#0B6B73]/40 hover:border-[#0B6B73] bg-[#F2F8F7] rounded-3xl p-8 text-center transition cursor-pointer relative">
@@ -182,7 +196,7 @@ export default function ScanPage() {
                 <img
                   src={previewUrl}
                   alt="Ảnh phiếu khám"
-                  className="max-h-72 mx-auto rounded-2xl shadow-md border-2 border-white object-contain"
+                  className="max-h-80 mx-auto rounded-2xl shadow-md border-2 border-white object-contain"
                 />
                 <p className="text-sm font-bold text-[#0B6B73]">Bấm vào ảnh để chọn ảnh khác</p>
               </div>
@@ -192,24 +206,26 @@ export default function ScanPage() {
                   <Camera className="w-8 h-8" />
                 </div>
                 <div className="text-xl font-extrabold text-[#073F46]">
-                  Chụp ảnh bằng Camera hoặc Chọn từ Album
+                  Chụp ảnh bằng Camera hoặc Chọn từ Máy tính / Điện thoại
                 </div>
                 <p className="text-sm text-[#5B6B77]">
-                  Hỗ trợ định dạng JPG, PNG, WEBP. Dung lượng tối đa 10 MB.
+                  Hỗ trợ định dạng JPG, PNG, WEBP. Ảnh được tự động làm nét và căn góc thẳng.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Step 4: Privacy & PII Masking Note */}
+        {/* Privacy & PII Masking Note */}
         <div className="bg-[#DCFCE7] border border-[#15803D]/20 rounded-2xl p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <ShieldAlert className="w-6 h-6 text-[#15803D] flex-shrink-0" />
             <div>
-              <div className="font-extrabold text-[#15803D] text-base">Bảo vệ quyền riêng tư người bệnh (PII Masking)</div>
+              <div className="font-extrabold text-[#15803D] text-base">
+                Bảo vệ quyền riêng tư người bệnh (PII Masking)
+              </div>
               <div className="text-xs text-gray-600">
-                Tự động phát hiện và che họ tên, năm sinh, mã vạch trước khi lưu trữ.
+                Tự động làm mờ họ tên, mã bệnh nhân, mã vạch trước khi xử lý trí tuệ nhân tạo.
               </div>
             </div>
           </div>
@@ -238,7 +254,7 @@ export default function ScanPage() {
             ) : (
               <>
                 <UploadCloud className="w-6 h-6" />
-                <span>Bắt đầu đọc phiếu ngay</span>
+                <span>Bắt đầu phân tích phiếu ngay</span>
                 <ArrowRight className="w-5 h-5 ml-1" />
               </>
             )}

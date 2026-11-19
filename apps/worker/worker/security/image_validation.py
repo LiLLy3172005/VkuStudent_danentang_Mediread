@@ -86,7 +86,15 @@ def sanitize_and_orient_image(image_path: str | Path, output_path: str | Path) -
         else:
             img_clean = img_oriented
 
+        # Resize if image is excessively large to accelerate OCR while preserving 100% legibility
+        max_dim = max(img_clean.width, img_clean.height)
+        if max_dim > 2048:
+            scale = 2048.0 / max_dim
+            new_w = int(img_clean.width * scale)
+            new_h = int(img_clean.height * scale)
+            img_clean = img_clean.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
         width, height = img_clean.size
-        # Save without preserving potentially malicious EXIF
-        img_clean.save(output_path, format="PNG", optimize=True)
+        # Save as high quality image without slow deflate brute-forcing
+        img_clean.save(output_path, format="JPEG", quality=95)
         return width, height

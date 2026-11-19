@@ -54,14 +54,15 @@ class Settings(BaseSettings):
         "http://172.16.0.2:3000",
         "http://172.16.0.2:8000",
     ]
-    # Regex matching all private LAN IPs (172.16-31.x.x, 192.168.x.x, 10.x.x.x) and localhost
+    # Regex matching all private LAN IPs (172.16-31.x.x, 192.168.x.x, 10.x.x.x), localhost, and tunnel/cloud domains
     CORS_ORIGIN_REGEX: str = (
-        r"^https?://(localhost|127\.0\.0\.1|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$"
+        r"^https?://(localhost|127\.0\.0\.1|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|[a-zA-Z0-9-]+\.trycloudflare\.com|[a-zA-Z0-9-]+\.mediread\.ai)(:\d+)?$"
     )
 
     RATE_LIMIT_DEFAULT: str = "100/minute"
     RATE_LIMIT_SCAN: str = "10/minute"
     RATE_LIMIT_AUTH: str = "20/minute"
+    RATE_LIMIT_AI: str = "20/minute"
 
 
 settings = Settings()

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { AppText as Text } from './AppText';
 import { Colors } from '../../theme/colors';
 
 interface StatusBadgeProps {
@@ -16,7 +17,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ flag, label }) => {
   if (isHigh) {
     return (
       <View style={[styles.badge, styles.badgeHigh]}>
-        <Text style={[styles.text, styles.textHigh]}>▲ {label || 'CAO (H)'}</Text>
+        <Text style={[styles.text, styles.textHigh]} numberOfLines={1} allowFontScaling={false}>
+          ▲ {label || 'CAO (H)'}
+        </Text>
       </View>
     );
   }
@@ -24,7 +27,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ flag, label }) => {
   if (isLow) {
     return (
       <View style={[styles.badge, styles.badgeLow]}>
-        <Text style={[styles.text, styles.textLow]}>▼ {label || 'THẤP (L)'}</Text>
+        <Text style={[styles.text, styles.textLow]} numberOfLines={1} allowFontScaling={false}>
+          ▼ {label || 'THẤP (L)'}
+        </Text>
       </View>
     );
   }
@@ -32,14 +37,18 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ flag, label }) => {
   if (isNormal) {
     return (
       <View style={[styles.badge, styles.badgeNormal]}>
-        <Text style={[styles.text, styles.textNormal]}>✓ {label || 'Bình thường'}</Text>
+        <Text style={[styles.text, styles.textNormal]} numberOfLines={1} allowFontScaling={false}>
+          ✓ {label || 'Bình thường'}
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={[styles.badge, styles.badgeUnknown]}>
-      <Text style={[styles.text, styles.textUnknown]}>{label || 'Chưa rõ'}</Text>
+      <Text style={[styles.text, styles.textUnknown]} numberOfLines={1} allowFontScaling={false}>
+        {label || 'Chưa rõ'}
+      </Text>
     </View>
   );
 };

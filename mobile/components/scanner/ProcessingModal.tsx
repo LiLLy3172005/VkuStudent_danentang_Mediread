@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Modal, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Modal, ActivityIndicator, StyleSheet } from 'react-native';
+import { AppText as Text } from '../common/AppText';
 import { Colors } from '../../theme/colors';
 import { ShieldCheck, Sparkles } from 'lucide-react-native';
 

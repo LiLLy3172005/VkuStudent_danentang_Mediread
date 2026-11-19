@@ -12,11 +12,12 @@ import logging
 from typing import Optional, List, Dict, Any
 import httpx
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 
 from app.config import settings
 from app.auth import get_current_user, AuthenticatedUser
 from app.services.supabase_service import db_service
+from app.security import limiter
 
 logger = logging.getLogger("mediread.ai")
 router = APIRouter(prefix="/api/v1/ai", tags=["AI Clinical Consultation"])
@@ -107,7 +108,7 @@ FALLBACK_CLINICAL_KB: Dict[str, Dict[str, Any]] = {
 }
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1)
+    message: str = Field(..., min_length=1, max_length=1000)
     document_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
@@ -190,7 +191,9 @@ async def query_gemini_ai(user_prompt: str, context_text: str = "", rag_text: st
 
 
 @router.post("/chat", response_model=ChatResponse)
+@limiter.limit(settings.RATE_LIMIT_AI)
 async def chat_doctor_ai(
+    request: Request,
     req: ChatRequest,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):

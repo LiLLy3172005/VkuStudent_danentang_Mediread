@@ -20,6 +20,16 @@ from app.schemas.medical import (
 router = APIRouter(prefix="/api/v1", tags=["Medical & Labs"])
 
 
+@router.get("/labs/indicators")
+async def get_user_lab_indicators(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    Returns list of distinct laboratory indicators for the current authenticated user.
+    """
+    return await db_service.get_user_lab_indicators(current_user.id)
+
+
 @router.get("/medical/trends")
 @router.get("/labs/trends/{code}", response_model=LabTrendResponse)
 async def get_indicator_trends(
@@ -40,13 +50,14 @@ async def get_indicator_trends(
     for r in sorted(records, key=lambda x: str(x.get("measured_at", ""))):
         val = r.get("value_num", 0.0)
         current_val = val
-        unit = r.get("unit", "")
+        unit = r.get("unit", "") or ""
+        raw_flag = r.get("flag") or "UNKNOWN"   # Fix: None → "UNKNOWN"
         points.append(
             LabTrendPoint(
                 measured_at=r.get("measured_at"),
                 value_num=val,
                 unit=unit,
-                flag=r.get("flag", "UNKNOWN"),
+                flag=str(raw_flag),
                 document_id=r.get("document_id"),
             )
         )

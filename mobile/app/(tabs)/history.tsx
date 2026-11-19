@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
@@ -9,17 +8,22 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { AppText as Text } from '../../components/common/AppText';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { api } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePreferences } from '../../contexts/PreferencesContext';
 import { DocumentSummary } from '../../types';
 import { HeaderBar } from '../../components/common/HeaderBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { Search, Calendar, ChevronRight, Filter } from 'lucide-react-native';
+import { Search, Calendar, ChevronRight } from 'lucide-react-native';
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { fs } = usePreferences();
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [filteredDocs, setFilteredDocs] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -27,22 +31,33 @@ export default function HistoryScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterType, setFilterType] = useState<'all' | 'lab_report' | 'prescription'>('all');
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     try {
       const data = await api.listDocuments();
       setDocuments(data || []);
       setFilteredDocs(data || []);
     } catch (e) {
       console.warn('Fetch history error:', e);
+      setDocuments([]);
+      setFilteredDocs([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
+    setLoading(true);
+    setDocuments([]);
+    setFilteredDocs([]);
     fetchDocuments();
-  }, []);
+  }, [user?.id, fetchDocuments]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDocuments();
+    }, [fetchDocuments])
+  );
 
   useEffect(() => {
     let result = documents;
@@ -75,13 +90,14 @@ export default function HistoryScreen() {
       >
         {/* Search Bar */}
         <View style={styles.searchBox}>
-          <Search size={18} color={Colors.textMuted} />
+          <Search size={18} color={Colors.textMuted} style={{ flexShrink: 0 }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Tìm theo bệnh viện, ngày khám..."
             placeholderTextColor={Colors.textSubtle}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            allowFontScaling={false}
           />
         </View>
 
@@ -91,7 +107,7 @@ export default function HistoryScreen() {
             style={[styles.filterChip, filterType === 'all' && styles.filterChipActive]}
             onPress={() => setFilterType('all')}
           >
-            <Text style={[styles.filterChipText, filterType === 'all' && styles.filterChipTextActive]}>
+            <Text style={[styles.filterChipText, filterType === 'all' && styles.filterChipTextActive]} numberOfLines={1} allowFontScaling={false}>
               Tất cả ({documents.length})
             </Text>
           </TouchableOpacity>
@@ -100,7 +116,7 @@ export default function HistoryScreen() {
             style={[styles.filterChip, filterType === 'lab_report' && styles.filterChipActive]}
             onPress={() => setFilterType('lab_report')}
           >
-            <Text style={[styles.filterChipText, filterType === 'lab_report' && styles.filterChipTextActive]}>
+            <Text style={[styles.filterChipText, filterType === 'lab_report' && styles.filterChipTextActive]} numberOfLines={1} allowFontScaling={false}>
               Xét nghiệm
             </Text>
           </TouchableOpacity>
@@ -109,7 +125,7 @@ export default function HistoryScreen() {
             style={[styles.filterChip, filterType === 'prescription' && styles.filterChipActive]}
             onPress={() => setFilterType('prescription')}
           >
-            <Text style={[styles.filterChipText, filterType === 'prescription' && styles.filterChipTextActive]}>
+            <Text style={[styles.filterChipText, filterType === 'prescription' && styles.filterChipTextActive]} numberOfLines={1} allowFontScaling={false}>
               Đơn thuốc
             </Text>
           </TouchableOpacity>
@@ -120,8 +136,14 @@ export default function HistoryScreen() {
           <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 30 }} />
         ) : filteredDocs.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>Không tìm thấy tài liệu phù hợp</Text>
-            <Text style={styles.emptyDesc}>Bác có thể thử tìm kiếm bằng từ khóa khác hoặc quét thêm phiếu mới.</Text>
+            <Text style={styles.emptyTitle} allowFontScaling={false}>
+              Chưa có tài liệu nào
+            </Text>
+            <Text style={styles.emptyDesc} maxFontSizeMultiplier={1.1}>
+              {searchQuery.trim()
+                ? 'Không tìm thấy phiếu khám khớp với từ khóa của bác.'
+                : 'Tài khoản của bác hiện chưa có phiếu khám nào. Bác hãy qua tab Quét để chụp phiếu xét nghiệm hoặc đơn thuốc mới nhé.'}
+            </Text>
           </View>
         ) : (
           filteredDocs.map((doc) => (
@@ -132,20 +154,24 @@ export default function HistoryScreen() {
               activeOpacity={0.7}
             >
               <View style={styles.docEmojiWrapper}>
-                <Text style={styles.docEmoji}>
+                <Text style={styles.docEmoji} allowFontScaling={false}>
                   {doc.doc_type === 'lab_report' ? '🔬' : '💊'}
                 </Text>
               </View>
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.docTitle}>
+              <View style={{ flex: 1, flexShrink: 1, paddingRight: 4 }}>
+                <Text style={styles.docTitle} numberOfLines={1}>
                   {doc.doc_type === 'lab_report' ? 'Phiếu Kết Quả Xét Nghiệm' : 'Đơn Thuốc Bác Sĩ Kê'}
                 </Text>
                 <View style={styles.metaRow}>
-                  <Calendar size={13} color={Colors.textMuted} />
-                  <Text style={styles.metaDate}>{doc.issued_date || 'Gần đây'}</Text>
+                  <Calendar size={12} color={Colors.textMuted} style={{ flexShrink: 0 }} />
+                  <Text style={styles.metaDate} numberOfLines={1}>
+                    {doc.issued_date || 'Gần đây'}
+                  </Text>
                   {doc.facility_name && (
-                    <Text style={styles.metaFacility} numberOfLines={1}>• {doc.facility_name}</Text>
+                    <Text style={styles.metaFacility} numberOfLines={1}>
+                      • {doc.facility_name}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -155,7 +181,7 @@ export default function HistoryScreen() {
                   flag={doc.status === 'confirmed' ? 'N' : null}
                   label={doc.status === 'confirmed' ? 'Đã duyệt' : 'Cần xem'}
                 />
-                <ChevronRight size={18} color={Colors.textMuted} />
+                <ChevronRight size={16} color={Colors.textMuted} style={{ flexShrink: 0 }} />
               </View>
             </TouchableOpacity>
           ))
@@ -183,34 +209,35 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 16,
     paddingHorizontal: 14,
-    height: 48,
+    height: 46,
     gap: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: Colors.textMain,
     fontWeight: '500',
   },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    marginVertical: 4,
+    marginVertical: 2,
   },
   filterChip: {
-    paddingVertical: 6,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.border,
+    flexShrink: 1,
   },
   filterChipActive: {
     backgroundColor: Colors.primaryDark,
     borderColor: Colors.primaryDark,
   },
   filterChipText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: Colors.textMain,
   },
@@ -220,15 +247,15 @@ const styles = StyleSheet.create({
   emptyContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 28,
+    padding: 24,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: Colors.border,
     gap: 6,
-    marginTop: 20,
+    marginTop: 16,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: Colors.textMain,
   },
@@ -236,31 +263,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textMuted,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
   },
   docCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    padding: 14,
+    padding: 12,
     borderWidth: 1.5,
     borderColor: Colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   docEmojiWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   docEmoji: {
-    fontSize: 22,
+    fontSize: 20,
   },
   docTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: Colors.textMain,
   },
@@ -271,18 +299,21 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   metaDate: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: Colors.textMuted,
     fontWeight: '500',
+    flexShrink: 0,
   },
   metaFacility: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: Colors.textMuted,
     flex: 1,
+    flexShrink: 1,
   },
   rightAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    flexShrink: 0,
   },
 });

@@ -201,16 +201,39 @@ async def upload_and_scan(
             target_path_for_ocr = str(anon_filepath)
             anonymized_url = f"/uploads/{anon_filename}"
 
-    # Thực hiện OCR tiếng Việt + Tiếng Anh bằng Tesseract
+    # Thực hiện OCR tiếng Việt + Tiếng Anh bằng Tesseract (ưu tiên vie để giữ dấu)
     ocr_text = ""
     try:
         from PIL import Image
+        import numpy as np
         img = Image.open(target_path_for_ocr)
+
+        # Tiền xử lý ảnh: scale 2x + grayscale để cải thiện độ chính xác OCR
+        orig_w, orig_h = img.size
+        if max(orig_w, orig_h) < 2000:
+            scale = 2000 / max(orig_w, orig_h)
+            img = img.resize((int(orig_w * scale), int(orig_h * scale)), Image.LANCZOS)
+        if img.mode not in ("L", "RGB"):
+            img = img.convert("RGB")
+
+        # Tesseract config tối ưu cho phiếu y tế: OEM 1 (LSTM), PSM 6 (block text)
+        TESS_CFG = "--oem 1 --psm 6 -c preserve_interword_spaces=1"
+
         try:
-            ocr_text = pytesseract.image_to_string(img, lang="vie+eng", config="--psm 6")
+            # Ưu tiên: vie+eng để giữ toàn bộ dấu tiếng Việt
+            ocr_text = pytesseract.image_to_string(img, lang="vie+eng", config=TESS_CFG)
         except Exception:
-            ocr_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
+            try:
+                ocr_text = pytesseract.image_to_string(img, lang="vie", config=TESS_CFG)
+            except Exception:
+                ocr_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
+
+        # Hậu xử lý: chuẩn hoá ký tự Unicode NFC (vd: ươ → ươ)
+        import unicodedata
+        ocr_text = unicodedata.normalize("NFC", ocr_text)
+
     except Exception as e:
+        print(f"[OCR Error] {e}", flush=True)
         ocr_text = ""
 
     # Nếu OCR ra quá ít chữ, ta vẫn gửi đường dẫn ảnh

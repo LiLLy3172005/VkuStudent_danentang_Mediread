@@ -10,6 +10,12 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+# Load torch first to prevent DLL conflicts with PaddleOCR on Windows
+try:
+    import torch
+except ImportError:
+    pass
+
 from worker.security.image_validation import validate_image_bytes, sanitize_and_orient_image
 from worker.security.pii_masking import mask_pii_from_image
 from worker.ocr.engine import OcrEngine
@@ -91,32 +97,41 @@ class DocumentProcessor:
                 age_group=age_enum,
             )
 
-        # Step 7: Explanations for abnormal indicators
+        # Step 7: Explanations for abnormal indicators (tối ưu tốc độ: ưu tiên tối đa 3 chỉ số bất thường quan trọng nhất)
         explanations = []
-        for lab in normalized_labs:
+        abnormal_labs = [
+            lab for lab in normalized_labs
+            if str(lab.flag.value if hasattr(lab.flag, "value") else lab.flag).lower() in ("high", "low")
+        ]
+        # Nếu không có chỉ số high/low thì mới xét needs_review
+        target_labs = abnormal_labs if abnormal_labs else [
+            lab for lab in normalized_labs
+            if str(lab.quality_status.value if hasattr(lab.quality_status, "value") else lab.quality_status).lower() == "needs_review"
+        ]
+
+        for lab in target_labs[:2]:  # Ưu tiên 2 chỉ số bất thường quan trọng nhất để phản hồi nhanh dưới 20 giây
             flag_str = str(lab.flag.value if hasattr(lab.flag, "value") else lab.flag).lower()
-            quality_str = str(lab.quality_status.value if hasattr(lab.quality_status, "value") else lab.quality_status).lower()
-            if flag_str in ("high", "low") or quality_str == "needs_review":
-                exp = self.rag_explainer.explain_item(
-                    name=lab.name,
-                    value=str(lab.value_num if lab.value_num is not None else lab.value_raw),
-                    unit=lab.unit_normalized or lab.unit_raw,
-                    ref_range=lab.reference_range_used or lab.reference_range_raw,
-                    flag=flag_str,
-                )
-                explanations.append({
-                    "indicator_name": lab.name,
-                    "explanation": exp["content"],
-                    "citations": exp["citations"],
-                    "disclaimer": exp["disclaimer"],
-                    "flag": flag_str,
-                })
+            exp = self.rag_explainer.explain_item(
+                name=lab.name,
+                value=str(lab.value_num if lab.value_num is not None else lab.value_raw),
+                unit=lab.unit_normalized or lab.unit_raw,
+                ref_range=lab.reference_range_used or lab.reference_range_raw,
+                flag=flag_str,
+            )
+            explanations.append({
+                "indicator_name": lab.name,
+                "explanation": exp["content"],
+                "citations": exp["citations"],
+                "disclaimer": exp["disclaimer"],
+                "flag": flag_str,
+            })
 
         # Step 8: Document Status Decision
         needs_review = ocr_result["needs_review"] or any(
             lab.quality_status.value == "needs_review" for lab in normalized_labs
         )
-        status = "needs_review" if needs_review else "uploaded"
+        # Tài liệu đã xử lý xong luôn chuyển thành 'needs_review' để người dùng xem và xác nhận
+        status = "needs_review"
 
         return {
             "status": status,
@@ -126,8 +141,8 @@ class DocumentProcessor:
             "masked_image_path": str(masked_image_path),
             "facility_name": extraction.facility_name,
             "issued_date": extraction.issued_date,
-            "lab_results": [it.model_dump() for it in normalized_labs],
-            "medications": [it.model_dump() for it in extraction.medicine_items],
+            "lab_results": [it.model_dump(mode="json") for it in normalized_labs],
+            "medications": [it.model_dump(mode="json") for it in extraction.medicine_items],
             "explanations": explanations,
             "is_pii_masked": mask_info["is_pii_masked"],
             "needs_review": needs_review,

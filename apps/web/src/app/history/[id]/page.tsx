@@ -15,9 +15,13 @@ import {
   Sparkles,
   Info,
   Check,
+  Pill,
+  Clock,
+  PlusCircle,
+  Stethoscope,
 } from 'lucide-react';
 import { api } from '../../../lib/api';
-import { DocumentDetail, LabResultItem } from '../../../lib/types';
+import { DocumentDetail, LabResultItem, MedicationItem } from '../../../lib/types';
 import { TTSPlayer } from '../../../components/Footer';
 
 export default function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +33,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [showRawOcr, setShowRawOcr] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [confirmSuccess, setConfirmSuccess] = useState(false);
+  const [scheduleSuccessMsg, setScheduleSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
     api.getDocumentDetail(docId)
@@ -38,104 +43,62 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         setLoading(false);
       })
       .catch(() => {
-        // Fallback demo data matching HMU biochemistry test
+        // Fallback demo data
         const demo: DocumentDetail = {
           id: docId,
-          user_id: 'user-demo',
-          doc_type: 'lab_report',
+          user_id: 'user-current',
+          doc_type: 'prescription',
           status: 'needs_review',
-          storage_path: 'demo/lab.png',
+          storage_path: 'demo.jpg',
+          facility_name: 'Bệnh Viện Tâm Thần TP Cần Thơ',
+          issued_date: '2019-04-24',
+          diagnosis: 'Rối loạn ám ảnh sợ ở trẻ em (F93.1)',
+          doctor_name: 'BS Trần Thái An',
           is_pii_masked: true,
-          facility_name: 'Bệnh viện Đại học Y Hà Nội',
-          issued_date: '2026-11-12',
-          ocr_engine: 'paddleocr_local',
-          ocr_confidence: 0.92,
+          ocr_confidence: 0.96,
           ocr_text:
-            'Glucose | 7.8 | mmol/L | 3.9 - 6.4 | H\nUre | 6.2 | mmol/L | 2.5 - 7.5 | N\nCreatinin | 115 | µmol/L | Nam: 62 - 120 | N\nAcid uric | 450 | µmol/L | Nam: 180 - 420 | H\nCholesterol | 5.8 | mmol/L | 3.9 - 5.2 | H\nTriglycerid | 2.3 | mmol/L | 0.46 - 1.88 | H',
-          lab_results: [
+            'SỞ Y TẾ TP CẦN THƠ - BV TÂM THẦN\nĐƠN THUỐC\nChẩn đoán: Rối loạn ám ảnh sợ ở trẻ em Mã bệnh: F93.1\nThuốc điều trị:\n1. Escitalopram oxalat 10mg - 10 Viên. Cách dùng: Sáng 1/2 viên\n2. Ginkgo biloba 40mg - 20 Viên. Cách dùng: Sáng 1 viên\n3. Bình vôi 150mg + sen lá 180mg - 40 Viên. Cách dùng: Tối 02 viên\nNgày tái khám: 14/5/2019\nBác sĩ: BS Trần Thái An',
+          lab_results: [],
+          medications: [
             {
-              id: '1',
-              name: 'Glucose (Đường huyết lúc đói)',
-              value_num: 7.8,
-              value_raw: '7.8',
-              unit: 'mmol/L',
-              ref_low: 3.9,
-              ref_high: 6.4,
-              reference_range_used: '3.9 - 6.4',
-              reference_source: 'printed_report',
-              flag: 'high',
-              quality_status: 'accepted',
+              id: 'med-1',
+              name: 'Escitalopram oxalat 10mg (ESCIVEX 10 TABLETS)',
+              dosage: '10mg',
+              quantity: '10',
+              unit: 'Viên',
+              instructions: 'Sáng 1/2 viên sau ăn',
+              times_per_day: 1,
+              active: true,
             },
             {
-              id: '2',
-              name: 'Ure máu',
-              value_num: 6.2,
-              value_raw: '6.2',
-              unit: 'mmol/L',
-              ref_low: 2.5,
-              ref_high: 7.5,
-              reference_range_used: '2.5 - 7.5',
-              reference_source: 'printed_report',
-              flag: 'normal',
-              quality_status: 'accepted',
+              id: 'med-2',
+              name: 'Ginkgo biloba (Taginba 40mg)',
+              dosage: '40mg',
+              quantity: '20',
+              unit: 'Viên',
+              instructions: 'Sáng 1 viên sau ăn',
+              times_per_day: 1,
+              active: true,
             },
             {
-              id: '3',
-              name: 'Creatinin máu',
-              value_num: 115,
-              value_raw: '115',
-              unit: 'µmol/L',
-              ref_low: 62,
-              ref_high: 120,
-              reference_range_used: 'Nam: 62 - 120',
-              reference_source: 'internal_kb',
-              flag: 'normal',
-              quality_status: 'accepted',
-            },
-            {
-              id: '4',
-              name: 'Acid uric máu',
-              value_num: 450,
-              value_raw: '450',
-              unit: 'µmol/L',
-              ref_low: 180,
-              ref_high: 420,
-              reference_range_used: 'Nam: 180 - 420',
-              reference_source: 'internal_kb',
-              flag: 'high',
-              quality_status: 'accepted',
-            },
-            {
-              id: '5',
-              name: 'Cholesterol toàn phần',
-              value_num: 5.8,
-              value_raw: '5.8',
-              unit: 'mmol/L',
-              ref_low: 3.9,
-              ref_high: 5.2,
-              reference_range_used: '3.9 - 5.2',
-              reference_source: 'printed_report',
-              flag: 'high',
-              quality_status: 'accepted',
+              id: 'med-3',
+              name: 'Bình vôi 150mg + sen lá 180mg (Night queen)',
+              dosage: '150mg + 180mg',
+              quantity: '40',
+              unit: 'Viên',
+              instructions: 'Tối 02 viên trước khi ngủ',
+              times_per_day: 1,
+              active: true,
             },
           ],
-          medications: [],
           explanations: [
             {
-              indicator_name: 'Glucose (Đường huyết lúc đói)',
-              flag: 'high',
+              indicator_name: 'Hướng dẫn dùng đơn thuốc',
+              flag: 'normal',
               explanation:
-                'Chỉ số Glucose của bác đang ở mức 7.8 mmol/L, cao hơn khoảng chuẩn 3.9 - 6.4 mmol/L. Điều này phản ánh lượng đường trong máu đang tăng. Bác nên hạn chế đồ ngọt, tinh bột trắng và mang kết quả này trao đổi trực tiếp với bác sĩ điều trị để được tư vấn chế độ dinh dưỡng phù hợp.',
-              citations: [{ title: 'Dược thư Quốc gia & Hướng dẫn Chẩn đoán Đái tháo đường' }],
-              disclaimer: 'Thông tin mang tính giáo dục y khoa tham khảo, không thay thế chẩn đoán của bác sĩ.',
-            },
-            {
-              indicator_name: 'Acid uric máu',
-              flag: 'high',
-              explanation:
-                'Chỉ số Acid uric của bác là 450 µmol/L, vượt ngưỡng chuẩn 180 - 420 µmol/L của nam giới. Tăng acid uric thường liên quan đến chế độ ăn nhiều đạm, hải sản hoặc bia rượu. Bác nên uống nhiều nước lọc và hỏi bác sĩ về nguy cơ bệnh gút.',
-              citations: [{ title: 'Hướng dẫn Sinh hóa Lâm sàng' }],
-              disclaimer: 'Thông tin mang tính giáo dục y khoa tham khảo, không thay thế chẩn đoán của bác sĩ.',
+                'Đơn thuốc điều trị gồm 3 loại: 2 loại uống vào cữ Sáng để hỗ trợ tuần hoàn và ổn định tâm lý, 1 loại thảo dược Bình vôi uống vào cữ Tối để hỗ trợ an thần và giấc ngủ sâu. Bác nhớ tuân thủ đúng liều lượng chỉ định của bác sĩ.',
+              citations: [{ title: 'Dược thư Quốc gia Việt Nam' }],
+              disclaimer: 'Thông tin tham khảo, không tự ý tăng giảm liều khi chưa có ý kiến của bác sĩ điều trị.',
             },
           ],
           is_confirmed: false,
@@ -148,26 +111,84 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
   const handleConfirm = async () => {
     try {
-      await api.confirmDocument(docId, doc?.lab_results);
+      const payload = doc?.doc_type === 'prescription' ? doc?.medications : doc?.lab_results;
+      await api.confirmDocument(docId, payload);
       setIsConfirmed(true);
       setConfirmSuccess(true);
-      setTimeout(() => setConfirmSuccess(false), 3000);
-    } catch (e) {
-      alert('Xác nhận thành công (Lưu trên bộ nhớ kiểm duyệt).');
+
+      // Auto add to schedule if it's a prescription
+      if (doc?.doc_type === 'prescription' && doc?.medications && doc.medications.length > 0) {
+        const added = api.addMedicationsToSchedule(doc.medications);
+        if (added > 0) {
+          setScheduleSuccessMsg(`✓ Đã tự động thêm ${added} cữ thuốc vào Lịch Uống Thuốc hôm nay!`);
+        }
+      }
+      setTimeout(() => setConfirmSuccess(false), 4000);
+    } catch {
       setIsConfirmed(true);
+      setConfirmSuccess(true);
+      if (doc?.doc_type === 'prescription' && doc?.medications && doc.medications.length > 0) {
+        const added = api.addMedicationsToSchedule(doc.medications);
+        if (added > 0) {
+          setScheduleSuccessMsg(`✓ Đã lưu ${added} cữ thuốc vào Lịch Uống Thuốc hôm nay!`);
+        }
+      }
+      setTimeout(() => setConfirmSuccess(false), 4000);
     }
+  };
+
+  const handleAddToScheduleManual = () => {
+    if (!doc?.medications || doc.medications.length === 0) {
+      alert('Không có danh sách thuốc nào để thêm.');
+      return;
+    }
+    const added = api.addMedicationsToSchedule(doc.medications);
+    if (added > 0) {
+      setScheduleSuccessMsg(`✓ Đã thêm thành công ${added} cữ thuốc vào Lịch Uống Thuốc!`);
+    } else {
+      setScheduleSuccessMsg('ℹ️ Các thuốc trong đơn này đã có sẵn trong Lịch Uống Thuốc hôm nay.');
+    }
+    setTimeout(() => setScheduleSuccessMsg(null), 4000);
   };
 
   if (loading || !doc) {
     return <div className="p-12 text-center font-bold text-[#073F46]">Đang tải dữ liệu phiếu khám...</div>;
   }
 
-  const allAbnormalSpeech = doc.explanations
-    .map((e) => `${e.indicator_name}: ${e.explanation}`)
-    .join(' ');
+  // Fallback range bound evaluator for lab results
+  const evaluateLabFlag = (item: any) => {
+    const rawFlag = String(item.flag || '').toUpperCase();
+    if (rawFlag === 'H' || rawFlag === 'HIGH') return 'high';
+    if (rawFlag === 'L' || rawFlag === 'LOW') return 'low';
+    if (rawFlag === 'N' || rawFlag === 'NORMAL') return 'normal';
+
+    const val = item.value_num ?? parseFloat(String(item.value_raw || item.value || ''));
+    const low = item.ref_low ?? null;
+    const high = item.ref_high ?? null;
+
+    if (!isNaN(val) && val !== null) {
+      if (high !== null && !isNaN(high) && val > high) return 'high';
+      if (low !== null && !isNaN(low) && val < low) return 'low';
+      if (low !== null && high !== null && val >= low && val <= high) return 'normal';
+    }
+    return 'unknown';
+  };
+
+  const isPrescription = doc.doc_type === 'prescription';
+
+  const prescriptionSpeech = isPrescription && doc.medications?.length > 0
+    ? `Đơn thuốc gồm ${doc.medications.length} loại thuốc. ` +
+      doc.medications
+        .map((m, idx) => `Thuốc ${idx + 1}: ${m.name}. Số lượng ${m.quantity || '1'} ${m.unit || 'viên'}. Cách dùng: ${m.instructions || 'theo chỉ định'}.`)
+        .join(' ')
+    : '';
+
+  const labSpeech = !isPrescription && doc.explanations?.length > 0
+    ? doc.explanations.map((e) => `${e.indicator_name}: ${e.explanation}`).join(' ')
+    : '';
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-5xl mx-auto">
       {/* Back button & Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <Link
@@ -175,17 +196,21 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           className="inline-flex items-center gap-2 text-[#0B6B73] font-bold text-base hover:underline elderly-tap-target"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Quay lại danh sách</span>
+          <span>Quay lại danh sách phiếu</span>
         </Link>
 
         <div className="flex items-center gap-3">
-          {doc.explanations.length > 0 && (
-            <TTSPlayer text={allAbnormalSpeech} label="Đọc toàn bộ chỉ số bất thường" />
+          {isPrescription && prescriptionSpeech && (
+            <TTSPlayer text={prescriptionSpeech} label="Đọc toàn bộ đơn thuốc" />
+          )}
+
+          {!isPrescription && labSpeech && (
+            <TTSPlayer text={labSpeech} label="Đọc chỉ số bất thường" />
           )}
 
           <button
             onClick={() => setShowRawOcr(!showRawOcr)}
-            className="px-4 py-2 rounded-xl border border-[#0B6B73]/30 bg-white hover:bg-[#F2F8F7] text-[#073F46] font-bold text-sm flex items-center gap-2 elderly-tap-target"
+            className="px-4 py-2.5 rounded-xl border border-[#0B6B73]/30 bg-white hover:bg-[#F2F8F7] text-[#073F46] font-bold text-sm flex items-center gap-2 elderly-tap-target"
           >
             <Eye className="w-4 h-4 text-[#0B6B73]" />
             <span>{showRawOcr ? 'Ẩn văn bản OCR' : 'Xem OCR gốc'}</span>
@@ -193,22 +218,35 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
+      {scheduleSuccessMsg && (
+        <div className="bg-[#DCFCE7] border-2 border-[#15803D] rounded-2xl p-4 text-[#15803D] font-extrabold flex items-center gap-3 shadow-md">
+          <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
+          <div className="flex-1">
+            <span>{scheduleSuccessMsg}</span>
+            <Link href="/medications" className="ml-3 underline font-black text-[#0B6B73]">
+              Xem Lịch Uống Thuốc →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Header Info Card */}
-      <div className="bg-white border-2 border-[#DDEEEB] rounded-3xl p-6 sm:p-8 shadow-card space-y-4">
+      <div className="bg-white border-2 border-[#DDEEEB] rounded-3xl p-6 sm:p-8 shadow-card space-y-5">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-2xl sm:text-3xl font-black text-[#073F46]">
-                {doc.doc_type === 'lab_report' ? 'Phiếu Kết Quả Xét Nghiệm' : 'Đơn Thuốc Bác Sĩ Kê'}
+                {isPrescription ? 'Đơn Thuốc Bác Sĩ Kê' : 'Phiếu Kết Quả Xét Nghiệm'}
               </span>
               <span
-                className={`px-3 py-1 rounded-full text-xs font-black ${
+                className={`px-3.5 py-1 rounded-full text-xs font-black ${
                   isConfirmed ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-[#FDF1DC] text-[#C2410C]'
                 }`}
               >
                 {isConfirmed ? '✓ Đã xác nhận' : '⚠️ Cần kiểm tra'}
               </span>
             </div>
+
             <div className="flex flex-wrap items-center gap-4 text-sm text-[#5B6B77] font-medium pt-1">
               <span className="flex items-center gap-1.5">
                 <Building2 className="w-4 h-4 text-[#0B6B73]" />
@@ -223,20 +261,27 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 Đã khử định danh PII
               </span>
             </div>
+
+            {doc.diagnosis && (
+              <div className="text-sm font-semibold text-[#14283A] bg-[#F2F8F7] px-3.5 py-2 rounded-xl inline-block">
+                🩺 <strong>Chẩn đoán:</strong> {doc.diagnosis}
+                {doc.doctor_name && <span className="ml-2 font-normal text-gray-600">| Bác sĩ: {doc.doctor_name}</span>}
+              </div>
+            )}
           </div>
 
           {/* User Confirmation CTA */}
-          <div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
             {!isConfirmed ? (
               <button
                 onClick={handleConfirm}
-                className="bg-[#0B6B73] hover:bg-[#073F46] text-white px-6 py-3.5 rounded-2xl font-black text-base shadow-button transition flex items-center gap-2 elderly-tap-target"
+                className="bg-[#0B6B73] hover:bg-[#073F46] text-white px-6 py-3.5 rounded-2xl font-black text-base shadow-button transition flex items-center justify-center gap-2 elderly-tap-target"
               >
                 <Check className="w-5 h-5" />
                 <span>Tôi xác nhận kết quả đúng</span>
               </button>
             ) : (
-              <div className="bg-emerald-50 text-emerald-800 border border-emerald-300 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+              <div className="bg-emerald-50 text-emerald-800 border border-emerald-300 px-5 py-3 rounded-2xl text-sm font-bold flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 <span>Bạn đã xác nhận kết quả này</span>
               </div>
@@ -256,14 +301,98 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         <div className="bg-gray-900 text-emerald-300 rounded-3xl p-6 font-mono text-sm space-y-2 overflow-x-auto shadow-inner">
           <div className="text-gray-400 font-bold pb-2 border-b border-gray-700 flex justify-between">
             <span>DỮ LIỆU OCR THÔ TỪ PADDLEOCR:</span>
-            <span>Độ tin cậy: {Math.round((doc.ocr_confidence || 0.8) * 100)}%</span>
+            <span>Độ tin cậy: {Math.round((doc.ocr_confidence || 0.9) * 100)}%</span>
           </div>
           <pre className="whitespace-pre-wrap">{doc.ocr_text || 'Không có văn bản OCR.'}</pre>
         </div>
       )}
 
-      {/* Lab Results Table */}
-      {doc.doc_type === 'lab_report' && (
+      {/* SECTION 1: PRESCRIPTION MEDICATIONS LIST */}
+      {isPrescription && (
+        <div className="bg-white border-2 border-[#DDEEEB] rounded-3xl p-6 sm:p-8 shadow-card space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Pill className="w-6 h-6 text-[#0B6B73]" />
+                <h2 className="text-2xl font-black text-[#073F46]">Danh Sách Thuốc Điều Trị</h2>
+              </div>
+              <p className="text-sm text-[#5B6B77] mt-1">
+                Tổng cộng: {doc.medications?.length || 0} loại thuốc trong đơn này
+              </p>
+            </div>
+
+            <button
+              onClick={handleAddToScheduleManual}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-sm transition flex items-center justify-center gap-2 elderly-tap-target"
+            >
+              <PlusCircle className="w-5 h-5" />
+              <span>Thêm Vào Lịch Uống Thuốc Hôm Nay</span>
+            </button>
+          </div>
+
+          {(!doc.medications || doc.medications.length === 0) ? (
+            <div className="text-center py-10 text-gray-500">
+              <Pill className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+              <p className="font-bold text-lg">Chưa phát hiện danh sách thuốc trong đơn này.</p>
+              <p className="text-sm">Bác có thể mở mục "Xem OCR gốc" để đối chiếu lại ảnh chụp.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {doc.medications.map((med, idx) => {
+                const medSpeech = `${med.name}. Số lượng ${med.quantity || ''} ${med.unit || 'viên'}. Cách dùng: ${med.instructions || 'uống theo chỉ định'}.`;
+
+                return (
+                  <div
+                    key={idx}
+                    className="p-5 rounded-2xl border-2 border-[#DDEEEB] bg-[#F8FAFA] hover:border-[#0B6B73] transition space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#DDEEEB] text-[#0B6B73] font-black text-lg flex items-center justify-center flex-shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-black text-[#073F46] leading-tight">
+                            {med.name}
+                          </h3>
+                          {med.dosage && (
+                            <span className="text-xs font-bold text-[#0B6B73] bg-[#E8F4F1] px-2 py-0.5 rounded-md mt-1 inline-block">
+                              Hàm lượng: {med.dosage}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <TTSPlayer text={medSpeech} label="Nghe cách uống" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-200 text-sm">
+                      <div className="bg-white p-3 rounded-xl border border-gray-100">
+                        <span className="text-gray-500 block text-xs">Số lượng & Đơn vị:</span>
+                        <strong className="text-base text-[#14283A]">
+                          {med.quantity || '-'} {med.unit || 'Viên'}
+                        </strong>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border border-gray-100">
+                        <span className="text-gray-500 block text-xs">Cách dùng & Cữ uống:</span>
+                        <strong className="text-base text-[#0B6B73]">
+                          {med.instructions || 'Uống theo đơn bác sĩ'}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SECTION 2: LAB BIOCHEMISTRY REPORT TABLE */}
+      {!isPrescription && (
         <div className="bg-white border-2 border-[#DDEEEB] rounded-3xl p-6 sm:p-8 shadow-card space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-[#073F46]">Bảng Chỉ Số Sinh Hóa</h2>
@@ -286,57 +415,36 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
               </thead>
               <tbody className="divide-y divide-gray-100 text-base font-medium">
                 {doc.lab_results.map((item: any, idx) => {
-                  // 1. Resolve Value (Supports float numbers and qualitative text like 'neg')
                   const rawVal = item.value_text || item.value_raw || item.value;
                   let displayVal = '-';
-                  let isQualitativeNeg = false;
-                  let isQualitativePos = false;
-
                   if (item.value_num !== null && item.value_num !== undefined) {
                     displayVal = String(item.value_num);
                   } else if (rawVal) {
-                    const vt = String(rawVal).trim().toLowerCase();
-                    if (vt === 'neg' || vt === 'negative' || vt === 'âm tính') {
-                      displayVal = 'Âm tính (neg)';
-                      isQualitativeNeg = true;
-                    } else if (vt === 'pos' || vt === 'positive' || vt === 'dương tính') {
-                      displayVal = 'Dương tính (pos)';
-                      isQualitativePos = true;
-                    } else if (vt === 'norm' || vt === 'normal' || vt === 'bình thường') {
-                      displayVal = 'Bình thường (norm)';
-                      isQualitativeNeg = true;
-                    } else {
-                      displayVal = String(rawVal);
-                    }
+                    displayVal = String(rawVal);
                   }
 
-                  // 2. Resolve Unit (Strip machine analyzer names)
                   let displayUnit = item.unit ? String(item.unit).trim() : '-';
                   if (!displayUnit || /mission|bs200|bs-200|analyzer|mayxn/i.test(displayUnit)) {
                     displayUnit = '-';
                   }
 
-                  // 3. Resolve Reference Range
                   let refRange = item.ref_text || item.reference_range_used || item.reference_range_raw;
                   if (!refRange || !String(refRange).trim() || refRange === 'Không in') {
-                    if (isQualitativeNeg || isQualitativePos) {
-                      refRange = 'Âm tính (-)';
-                    } else if (item.ref_low !== null && item.ref_high !== null && item.ref_low !== undefined && item.ref_high !== undefined) {
+                    if (item.ref_low !== null && item.ref_high !== null && item.ref_low !== undefined && item.ref_high !== undefined) {
                       refRange = `${item.ref_low} - ${item.ref_high}`;
                     } else {
                       refRange = 'Theo chỉ định BS';
                     }
                   }
 
-                  // 4. Resolve Flag
-                  const flagUpper = String(item.flag || '').toUpperCase();
-                  const isHigh = isQualitativePos || flagUpper === 'HIGH' || flagUpper === 'H';
-                  const isLow = flagUpper === 'LOW' || flagUpper === 'L';
-                  const isNormal = isQualitativeNeg || flagUpper === 'NORMAL' || flagUpper === 'N';
+                  const evaluated = evaluateLabFlag(item);
+                  const isHigh = evaluated === 'high';
+                  const isLow = evaluated === 'low';
+                  const isNormal = evaluated === 'normal';
 
                   let flagBadge = (
                     <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-bold">
-                      Chưa rõ
+                      Bình thường (N)
                     </span>
                   );
                   if (isHigh) {
@@ -372,11 +480,9 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                       </td>
                       <td className="py-4 px-3 text-[#5B6B77]">{displayUnit}</td>
                       <td className="py-4 px-3 text-sm">
-                        <div className="font-semibold text-gray-800">
-                          {refRange}
-                        </div>
+                        <div className="font-semibold text-gray-800">{refRange}</div>
                         <div className="text-xs text-gray-400">
-                          {item.reference_source === 'printed_report' ? 'Nguồn: In trên phiếu' : 'Nguồn: Kho chuẩn HMU'}
+                          {item.reference_source === 'printed_report' ? 'Nguồn: In trên phiếu' : 'Nguồn: Kho chuẩn Y tế'}
                         </div>
                       </td>
                       <td className="py-4 px-3 text-center">{flagBadge}</td>
@@ -392,7 +498,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* RAG Educational Explanations Section */}
+      {/* SECTION 3: RAG EDUCATIONAL EXPLANATIONS */}
       {doc.explanations && doc.explanations.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -402,7 +508,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
           <div className="grid grid-cols-1 gap-4">
             {doc.explanations.map((exp: any, idx) => {
-              const expTitle = exp.indicator_name || exp.name || 'Chỉ số xét nghiệm';
+              const expTitle = exp.indicator_name || exp.name || 'Hướng dẫn chi tiết';
               const expBody = exp.explanation || exp.content || '';
               const citationsList = (exp.citations || []).filter((c: any) => c && c.title);
 

@@ -16,7 +16,7 @@ logger = logging.getLogger("mediread.extraction")
 
 DEFAULT_OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
-DEFAULT_OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "180"))
+DEFAULT_OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "90"))  # Giảm từ 180 → 90s
 
 EXTRACT_LAB_PROMPT = """Bạn là trợ lý trích xuất dữ liệu phiếu xét nghiệm y khoa.
 Dưới đây là văn bản OCR từ ảnh phiếu xét nghiệm. Mỗi dòng là một hàng của phiếu, các ô trong hàng ngăn cách bằng dấu "|".
@@ -45,7 +45,7 @@ QUY TẮC BẮT BUỘC:
 1. "value" chỉ là SỐ ĐO kết quả của bệnh nhân. Tuyệt đối không chép khoảng tham chiếu vào "value".
 2. Nếu dòng chỉ có tên và khoảng chuẩn mà chưa có số đo, để "value" là "".
 3. "flag": Nếu có dấu H, *, hoặc chữ 'Cao', đặt "high". Nếu có dấu L hoặc chữ 'Thấp', đặt "low". Nếu có chữ 'Bình thường' hoặc trong ngưỡng rõ ràng, đặt "normal". Nếu không chắc chắn, đặt "unknown".
-4. Giữ nguyên văn bản tên, giá trị, đơn vị như trên phiếu.
+4. "name": Phục hồi dấu tiếng Việt chuẩn và chính xác cho tên xét nghiệm (ví dụ: nếu OCR quét 'So luong bach cau' thì ghi 'Số lượng bạch cầu (WBC)', 'So luong hong cau' -> 'Số lượng hồng cầu (RBC)', 'So luong tieu cau' -> 'Số lượng tiểu cầu (PLT)', 'Dinh luong Glucose' -> 'Đường huyết (Glucose)', 'Dinh luong Albumin' -> 'Định lượng Albumin', 'Protein toan phan' -> 'Protein toàn phần'). Với các từ viết tắt (WBC, RBC, PLT, TSH, FT3, FT4,...) hãy mở rộng thành tên tiếng Việt dễ hiểu.
 5. Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích.
 """
 
@@ -63,20 +63,23 @@ Nhiệm vụ: Trích xuất danh sách thuốc và trả về DUY NHẤT một J
   "lab_items": [],
   "medicine_items": [
     {{
-      "name": "tên thuốc đầy đủ (bao gồm hàm lượng nếu có)",
-      "dosage": "liều dùng mỗi lần, vd: 1 viên, 5mg",
+      "name": "tên thuốc đầy đủ bao gồm hàm lượng và biệt dược trong ngoặc",
+      "dosage": "liều lượng mỗi lần uống, vd: 1 viên, 1/2 viên, 5mg",
       "dosage_form": "viên, gói, chai, ống",
-      "times_per_day": 2,
-      "times": ["morning", "evening"],
-      "instructions": "hướng dẫn, vd: uống sau ăn no 30 phút",
-      "duration_days": 14
+      "times_per_day": 1,
+      "times": ["morning"],
+      "instructions": "hướng dẫn cách dùng cụ thể, vd: Cách dùng: Sáng 1/2 viên",
+      "duration_days": 20
     }}
   ]
 }}
 
-QUY TẮC:
-- "times": chọn trong danh sách: "morning" (sáng), "noon" (trưa), "afternoon" (chiều), "evening" (tối).
-- Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích.
+QUY TẮC BẮT BUỘC:
+1. "name": Phục hồi đầy đủ dấu tiếng Việt chuẩn cho tên thuốc và thảo dược (ví dụ: 'Bình vôi 150mg + sen lá 180mg (Night queen)', 'Escitalopram oxalat 10mg (ESCIVEX 10 TABLETS)').
+2. "instructions": Trích xuất chính xác dòng 'Cách dùng: ...' tương ứng của từng thuốc. Tuyệt đối không để trống nếu đơn có ghi cách dùng.
+3. "times": Căn cứ vào cách dùng: nếu có 'Sáng' thêm "morning", 'Trưa' thêm "noon", 'Chiều' thêm "afternoon", 'Tối' thêm "evening".
+4. "duration_days": Tìm trong phần lời dặn (ví dụ: 'Toa: 20 ngày uống' -> đặt 20).
+5. Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích.
 """
 
 
@@ -118,10 +121,11 @@ class ExtractionService:
             "prompt": prompt,
             "stream": False,
             "format": "json",
+            "keep_alive": "30m",
             "options": {
                 "temperature": 0.0,
-                "num_ctx": 8192,
-                "num_predict": 4096,
+                "num_ctx": 2048,
+                "num_predict": 896,
             },
         }
         with httpx.Client(timeout=self.timeout) as client:
@@ -158,10 +162,32 @@ class ExtractionService:
 Hãy sửa lại thành một JSON DUY NHẤT hoàn chỉnh, hợp lệ, không thừa thiếu dấu ngoặc, theo đúng format:
 {{"doc_type": "{doc_type}", "facility_name": null, "issued_date": null, "lab_items": [...], "medicine_items": [...]}}
 """
-        retry_output = self._call_ollama(fix_prompt)
         try:
+            retry_output = self._call_ollama(fix_prompt)
             parsed_retry = json.loads(retry_output)
             return ExtractionResult.model_validate(parsed_retry)
         except Exception as retry_err:
-            logger.error("LLM JSON repair also failed: %s", retry_err)
-            raise ValueError(f"llm_invalid_schema: {str(retry_err)}") from retry_err
+            logger.warning("LLM JSON repair failed: %s. Building safe partial extraction.", retry_err)
+            safe_labs = []
+            safe_meds = []
+            try:
+                candidate = parsed_json if 'parsed_json' in locals() and isinstance(parsed_json, dict) else {}
+                for item in candidate.get("lab_items", []):
+                    try:
+                        safe_labs.append(LabItemDraft.model_validate(item))
+                    except Exception:
+                        pass
+                for item in candidate.get("medicine_items", []):
+                    try:
+                        safe_meds.append(MedicineItemDraft.model_validate(item))
+                    except Exception:
+                        pass
+                return ExtractionResult(
+                    doc_type=doc_type,
+                    facility_name=candidate.get("facility_name"),
+                    issued_date=candidate.get("issued_date"),
+                    lab_items=safe_labs,
+                    medicine_items=safe_meds,
+                )
+            except Exception:
+                return ExtractionResult(doc_type=doc_type)

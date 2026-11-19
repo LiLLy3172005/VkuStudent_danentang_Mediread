@@ -1,16 +1,19 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Settings, Volume2, Type, Sliders, User, ShieldCheck } from 'lucide-react';
 import { useElderlyPreferences } from '../../components/ElderlyPreferencesContext';
 import { TTSPlayer } from '../../components/Footer';
 import { api } from '../../lib/api';
 
 export default function SettingsPage() {
-  const { fontScale, setFontScale, ttsRate, setTtsRate, ttsEnabled, setTtsEnabled } = useElderlyPreferences();
+  const { fontScale, setFontScale, ttsRate, setTtsRate } = useElderlyPreferences();
 
   const speechText =
     'Tại đây bác có thể điều chỉnh chữ to hơn, chỉnh giọng nói đọc chậm hơn để nghe rõ ràng nhất.';
+
+  const user = api.getCurrentUser();
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -19,7 +22,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-3xl font-black text-[#073F46]">Cài Đặt & Trợ Năng</h1>
           <p className="text-[#5B6B77] text-base mt-1">
-            Tùy chỉnh cỡ chữ và giọng đọc phù hợp nhất với mắt và tai của bác
+            Tùy chỉnh cỡ chữ và giọng đọc phù hợp nhất với mắt và tai của người cao tuổi
           </p>
         </div>
         <TTSPlayer text={speechText} label="Nghe hướng dẫn" />
@@ -38,8 +41,8 @@ export default function SettingsPage() {
         <div className="grid grid-cols-3 gap-4 pt-2">
           {[
             { label: 'Chuẩn (100%)', val: 1.0 },
-            { label: 'Lớn (115%)', val: 1.15 },
-            { label: 'Rất lớn (130%)', val: 1.3 },
+            { label: 'To rõ (125%)', val: 1.25 },
+            { label: 'Rất to (145%)', val: 1.45 },
           ].map((item) => (
             <button
               key={item.val}
@@ -96,37 +99,37 @@ export default function SettingsPage() {
             <User className="w-6 h-6 text-[#0B6B73]" />
             <h2>3. Thông tin tài khoản người dùng</h2>
           </div>
-          <a
+          <Link
             href="/login"
             className="text-sm font-bold text-[#0B6B73] hover:underline"
           >
             Đổi tài khoản
-          </a>
+          </Link>
         </div>
 
         <div className="space-y-3 divide-y divide-gray-100 text-base">
           <div className="flex justify-between py-2">
             <span className="text-[#5B6B77]">Họ và tên:</span>
             <span className="font-extrabold text-[#073F46]">
-              {api.getCurrentUser()?.full_name || 'Bác Trần Văn Minh'}
+              {user?.full_name || 'Bác Trần Văn Minh'}
             </span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-[#5B6B77]">Năm sinh:</span>
             <span className="font-bold">
-              {api.getCurrentUser()?.birth_year ? `${api.getCurrentUser()?.birth_year} (${new Date().getFullYear() - (api.getCurrentUser()?.birth_year || 0)} tuổi)` : '1954 (72 tuổi)'}
+              {user?.birth_year ? `${user.birth_year} (${new Date().getFullYear() - user.birth_year} tuổi)` : '1954 (72 tuổi)'}
             </span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-[#5B6B77]">Giới tính:</span>
             <span className="font-bold uppercase">
-              {api.getCurrentUser()?.sex || 'Nam'}
+              {user?.sex || 'Nam'}
             </span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-[#5B6B77]">Vai trò tài khoản:</span>
             <span className="font-bold text-[#0B6B73]">
-              {api.getCurrentUser()?.role === 'caregiver' ? 'Người thân chăm sóc' : 'Người bệnh (Chính chủ)'}
+              {user?.role === 'caregiver' ? 'Người thân chăm sóc' : 'Người bệnh (Chính chủ)'}
             </span>
           </div>
         </div>

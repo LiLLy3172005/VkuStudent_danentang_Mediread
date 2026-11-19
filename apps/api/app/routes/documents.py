@@ -25,6 +25,16 @@ router = APIRouter(prefix="/api/v1/documents", tags=["Documents"])
 STORAGE_ROOT = Path("storage/documents")
 STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
 
+# Singleton processor để giữ model PaddleOCR và Embedding trong RAM, không nạp lại mỗi scan
+_cached_processor = None
+
+def get_processor():
+    global _cached_processor
+    if _cached_processor is None:
+        from worker.jobs import DocumentProcessor
+        _cached_processor = DocumentProcessor()
+    return _cached_processor
+
 
 async def process_document_background(
     doc_id: uuid.UUID,
@@ -36,8 +46,8 @@ async def process_document_background(
 ):
     """Worker task executed asynchronously in background."""
     try:
-        from worker.jobs import DocumentProcessor
-        processor = DocumentProcessor()
+        await db_service.update_document_status(doc_id, "processing")
+        processor = get_processor()
         results = processor.process_document(
             file_path=saved_file_path,
             doc_type=doc_type,
@@ -109,10 +119,24 @@ async def upload_document(
 
 @router.get("", response_model=List[DocumentSummary])
 async def list_documents(
+    patient_id: Optional[uuid.UUID] = None,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Lists past documents belonging to current authenticated user."""
-    docs = await db_service.list_documents(current_user.id)
+    """Lists past documents belonging to current user or linked elderly patient."""
+    target_user_id = current_user.id
+    if patient_id and patient_id != current_user.id:
+        care_links = await db_service.get_care_links(current_user.id)
+        is_caregiver = any(
+            str(link.get("patient_id")) == str(patient_id)
+            and str(link.get("caregiver_id")) == str(current_user.id)
+            and link.get("status") == "accepted"
+            for link in care_links
+        )
+        if not is_caregiver:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="access_denied_to_patient_records")
+        target_user_id = patient_id
+
+    docs = await db_service.list_documents(target_user_id)
     return docs
 
 

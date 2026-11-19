@@ -1,46 +1,98 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
+import { AppText as Text } from '../../components/common/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Colors } from '../../theme/colors';
 import { api } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import { HeaderBar } from '../../components/common/HeaderBar';
 import { SimpleSvgChart } from '../../components/charts/SimpleSvgChart';
-import { TrendingUp, Info, Activity } from 'lucide-react-native';
+import { TTSButton } from '../../components/common/TTSButton';
+import { Info, Activity, Camera, TrendingUp, CheckCircle2, AlertTriangle } from 'lucide-react-native';
 
-const INDICATORS = [
-  { code: 'GLU', name: 'Đường huyết (Glucose)', unit: 'mmol/L', low: 3.9, high: 6.4 },
-  { code: 'CRE', name: 'Creatinin (Thận)', unit: 'µmol/L', low: 53.0, high: 106.0 },
-  { code: 'CHOL', name: 'Cholesterol toàn phần', unit: 'mmol/L', low: 3.9, high: 5.2 },
-  { code: 'AST', name: 'Men gan (AST/GOT)', unit: 'U/L', low: 10.0, high: 35.0 },
-];
+interface IndicatorItem {
+  code: string;
+  name: string;
+  unit: string;
+  low?: number | null;
+  high?: number | null;
+  count?: number;
+  latest_value?: number | null;
+  latest_flag?: string | null;
+  latest_date?: string | null;
+}
 
 export default function TrendsScreen() {
-  const [selectedCode, setSelectedCode] = useState<string>('GLU');
-  const [chartData, setChartData] = useState<Array<{ date: string; value: number }>>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const router = useRouter();
+  const { user } = useAuth();
 
-  const currentIndicator = INDICATORS.find((i) => i.code === selectedCode) || INDICATORS[0];
+  const [indicators, setIndicators] = useState<IndicatorItem[]>([]);
+  const [selectedCode, setSelectedCode] = useState<string>('');
+  const [chartData, setChartData] = useState<Array<{ date: string; value: number }>>([]);
+  const [latestPoint, setLatestPoint] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   useEffect(() => {
-    loadTrends();
+    loadUserIndicators();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (selectedCode) {
+      loadTrendsForIndicator(selectedCode);
+    }
   }, [selectedCode]);
 
-  const loadTrends = async () => {
+  const loadUserIndicators = async () => {
     setLoading(true);
     try {
-      const raw: any = await api.getTrends(selectedCode);
-      const records: any[] = Array.isArray(raw) ? raw : (raw?.history || []);
+      const data = await api.getLabIndicators();
+      if (data && data.length > 0) {
+        setIndicators(data);
+        setSelectedCode(data[0].code);
+      } else {
+        setIndicators([]);
+        setSelectedCode('');
+        setChartData([]);
+      }
+    } catch {
+      setIndicators([]);
+      setSelectedCode('');
+      setChartData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadUserIndicators();
+    setRefreshing(false);
+  };
+
+  const loadTrendsForIndicator = async (code: string) => {
+    setLoading(true);
+    try {
+      const records: any[] = await api.getTrends(code);
       if (records && records.length > 0) {
+        // Sort by date ascending
+        const sorted = [...records].sort((a, b) =>
+          String(a.measured_at || '').localeCompare(String(b.measured_at || ''))
+        );
+
+        setLatestPoint(sorted[sorted.length - 1]);
+
         setChartData(
-          records.map((r: any) => {
-            let dStr = '01/01';
+          sorted.map((r: any) => {
+            let dStr = 'Gần đây';
             if (r.measured_at) {
               const parts = r.measured_at.split('-');
               if (parts.length === 3) {
@@ -56,94 +108,188 @@ export default function TrendsScreen() {
           })
         );
       } else {
-        // Fallback demo sequence if new user has few uploads
-        if (selectedCode === 'GLU') {
-          setChartData([
-            { date: '10/09', value: 5.8 },
-            { date: '15/10', value: 6.1 },
-            { date: '14/11', value: 5.3 },
-          ]);
-        } else if (selectedCode === 'CHOL') {
-          setChartData([
-            { date: '10/09', value: 5.8 },
-            { date: '15/10', value: 5.5 },
-            { date: '14/11', value: 5.31 },
-          ]);
-        } else {
-          setChartData([
-            { date: '15/10', value: 78.0 },
-            { date: '14/11', value: 72.0 },
-          ]);
-        }
+        setChartData([]);
+        setLatestPoint(null);
       }
     } catch {
-      // Default placeholder data
-      setChartData([{ date: '14/11', value: 5.3 }]);
+      setChartData([]);
+      setLatestPoint(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const currentIndicator = indicators.find((i) => i.code === selectedCode) || indicators[0];
+
+  const speechText = currentIndicator && chartData.length > 0
+    ? `Chỉ số ${currentIndicator.name}. Kết quả gần nhất là ${latestPoint?.value_num ?? currentIndicator.latest_value ?? ''} ${currentIndicator.unit}. Bác có ${chartData.length} lần đo được ghi nhận trong hồ sơ.`
+    : 'Chưa có dữ liệu xét nghiệm của bác.';
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <HeaderBar title="Xu Hướng Sức Khỏe" subtitle="Biến động các chỉ số xét nghiệm qua các lần khám" />
+      <HeaderBar title="Xu Hướng Sức Khỏe" subtitle="Theo dõi biến động chỉ số xét nghiệm thực tế của bác" />
 
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Indicator Selector Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
-          {INDICATORS.map((ind) => (
+      <ScrollView
+        contentContainerStyle={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+      >
+        {indicators.length === 0 && !loading ? (
+          /* Real Empty State: User has no lab results yet */
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <Activity size={48} color={Colors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>Chưa có kết quả xét nghiệm</Text>
+            <Text style={styles.emptyDesc}>
+              Hồ sơ y tế của bác chưa có chỉ số sinh hóa nào được lưu. Bác hãy chụp hoặc quét phiếu xét nghiệm tại trang "Quét" để hệ thống tự động vẽ biểu đồ theo dõi riêng cho bác nhé!
+            </Text>
             <TouchableOpacity
-              key={ind.code}
-              style={[styles.indicatorTab, selectedCode === ind.code && styles.indicatorTabActive]}
-              onPress={() => setSelectedCode(ind.code)}
-              activeOpacity={0.8}
+              style={styles.scanNowBtn}
+              onPress={() => router.push('/scan' as any)}
+              activeOpacity={0.85}
             >
-              <Text style={[styles.indicatorTabText, selectedCode === ind.code && styles.indicatorTabTextActive]}>
-                {ind.name}
-              </Text>
+              <Camera size={20} color="#FFFFFF" />
+              <Text style={styles.scanNowBtnText}>Chụp & Quét Phiếu Xét Nghiệm Ngay</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Current Metric Highlight Card */}
-        <View style={styles.metricHighlightCard}>
-          <View style={styles.metricHeader}>
-            <View>
-              <Text style={styles.metricTitle}>{currentIndicator.name}</Text>
-              <Text style={styles.metricSub}>Đo lường nồng độ chuẩn y tế</Text>
-            </View>
-            <View style={styles.metricBadge}>
-              <Activity size={16} color={Colors.primary} />
-              <Text style={styles.metricBadgeText}>{currentIndicator.unit}</Text>
-            </View>
           </View>
+        ) : (
+          <>
+            {/* Top Indicator Selection Scroll */}
+            <View style={styles.indicatorSection}>
+              <Text style={styles.sectionHeading}>Các chỉ số có trong hồ sơ của bác:</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tabsScroll}
+              >
+                {indicators.map((ind) => {
+                  const isSelected = selectedCode === ind.code;
+                  return (
+                    <TouchableOpacity
+                      key={ind.code}
+                      style={[styles.indicatorTab, isSelected && styles.indicatorTabActive]}
+                      onPress={() => setSelectedCode(ind.code)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[styles.indicatorTabText, isSelected && styles.indicatorTabTextActive]}
+                        numberOfLines={1}
+                      >
+                        {ind.name}
+                      </Text>
+                      {ind.count ? (
+                        <View style={[styles.tabCountBadge, isSelected && styles.tabCountBadgeActive]}>
+                          <Text style={[styles.tabCountText, isSelected && { color: Colors.primaryDark }]}>
+                            {ind.count}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
 
-          {/* Chart Display */}
-          {loading ? (
-            <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 30 }} />
-          ) : (
-            <SimpleSvgChart
-              data={chartData}
-              unit={currentIndicator.unit}
-              refLow={currentIndicator.low}
-              refHigh={currentIndicator.high}
-            />
-          )}
-        </View>
+            {/* Current Metric Highlight Card */}
+            {currentIndicator && (
+              <View style={styles.metricHighlightCard}>
+                <View style={styles.metricHeader}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.metricTitle}>{currentIndicator.name}</Text>
+                    <Text style={styles.metricSub}>
+                      {currentIndicator.low !== null && currentIndicator.high !== null
+                        ? `Khoảng chuẩn: ${currentIndicator.low} - ${currentIndicator.high} ${currentIndicator.unit}`
+                        : 'Khoảng chuẩn: Theo chỉ định của bác sĩ'}
+                    </Text>
+                  </View>
 
-        {/* Clinical Interpretation for Elderly */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <Info size={18} color={Colors.primary} />
-            <Text style={styles.infoTitle}>Lời khuyên y khoa cho người cao tuổi</Text>
-          </View>
-          <Text style={styles.infoText}>
-            • Vùng màu xanh lá là khoảng an toàn chuẩn của bệnh viện ({currentIndicator.low} - {currentIndicator.high} {currentIndicator.unit}).
-          </Text>
-          <Text style={styles.infoText}>
-            • Nếu điểm đo nằm cao hơn hoặc thấp hơn dải xanh, bác nên mang kết quả này trao đổi trực tiếp với bác sĩ điều trị để được tư vấn chế độ ăn uống phù hợp.
-          </Text>
-        </View>
+                  <TTSButton text={speechText} label="Nghe" compact />
+                </View>
+
+                {/* Latest Result Banner */}
+                {latestPoint && (
+                  <View style={styles.latestBanner}>
+                    <Text style={styles.latestLabel}>KẾT QUẢ GẦN NHẤT</Text>
+
+                    <View style={styles.latestRow}>
+                      <View style={styles.latestValueWrap}>
+                        <Text style={styles.latestValue}>{latestPoint.value_num}</Text>
+                        <Text style={styles.latestUnit}>{currentIndicator.unit}</Text>
+                      </View>
+
+                      {/* Status Flag Badge */}
+                      <View style={styles.flagContainer}>
+                        {String(latestPoint.flag || '').toUpperCase() === 'H' ? (
+                          <View style={[styles.flagBadge, { backgroundColor: '#FEE2E2', borderColor: '#DC2626' }]}>
+                            <Text style={[styles.flagBadgeText, { color: '#DC2626' }]}>▲ CAO (H)</Text>
+                          </View>
+                        ) : String(latestPoint.flag || '').toUpperCase() === 'L' ? (
+                          <View style={[styles.flagBadge, { backgroundColor: '#EFF6FF', borderColor: '#1D4ED8' }]}>
+                            <Text style={[styles.flagBadgeText, { color: '#1D4ED8' }]}>▼ THẤP (L)</Text>
+                          </View>
+                        ) : (
+                          <View style={[styles.flagBadge, { backgroundColor: '#DCFCE7', borderColor: '#15803D' }]}>
+                            <Text style={[styles.flagBadgeText, { color: '#15803D' }]}>✓ Bình thường</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+
+                    <Text style={styles.latestDate}>
+                      🗓️ Ngày đo: {latestPoint.measured_at || 'Gần đây'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Chart Display */}
+                {loading ? (
+                  <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 30 }} />
+                ) : chartData.length >= 2 ? (
+                  <View style={{ marginTop: 8 }}>
+                    <SimpleSvgChart
+                      data={chartData}
+                      unit={currentIndicator.unit}
+                      refLow={currentIndicator.low ?? undefined}
+                      refHigh={currentIndicator.high ?? undefined}
+                    />
+                  </View>
+                ) : chartData.length === 1 ? (
+                  <View style={styles.singlePointBox}>
+                    <TrendingUp size={24} color={Colors.primary} style={{ flexShrink: 0 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.singlePointTitle}>Đã ghi nhận 1 lần đo trong hồ sơ</Text>
+                      <Text style={styles.singlePointDesc}>
+                        Khi bác quét thêm các lần tái khám tiếp theo, hệ thống sẽ tự động nối các điểm đo thành đường biểu đồ xu hướng.
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.noDataBox}>
+                    <Text style={styles.noDataText}>Chưa có dữ liệu đo cho chỉ số này.</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Clinical Interpretation for Elderly */}
+            {currentIndicator && (
+              <View style={styles.infoCard}>
+                <View style={styles.infoHeader}>
+                  <Info size={20} color={Colors.primaryDark} style={{ flexShrink: 0 }} />
+                  <Text style={styles.infoTitle}>Lời khuyên y khoa cho người cao tuổi</Text>
+                </View>
+                {currentIndicator.low !== null && currentIndicator.high !== null ? (
+                  <Text style={styles.infoText}>
+                    • Vùng an toàn chuẩn y tế cho chỉ số này là từ {currentIndicator.low} đến {currentIndicator.high} {currentIndicator.unit}.
+                  </Text>
+                ) : null}
+                <Text style={styles.infoText}>
+                  • Kết quả được trích xuất hoàn toàn tự động từ phiếu xét nghiệm của bác. Bác nên mang bảng kết quả này trao đổi trực tiếp với bác sĩ điều trị trong các đợt tái khám định kỳ.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -159,17 +305,32 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: 16,
   },
+  sectionHeading: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Colors.primaryDark,
+    marginBottom: 8,
+  },
+  indicatorSection: {
+    gap: 6,
+  },
   tabsScroll: {
-    gap: 8,
-    paddingVertical: 2,
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 4,
+    paddingRight: 16,
   },
   indicatorTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: Colors.border,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    minHeight: 46,
   },
   indicatorTabActive: {
     backgroundColor: Colors.primaryDark,
@@ -177,59 +338,152 @@ const styles = StyleSheet.create({
   },
   indicatorTabText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.primaryDark,
   },
   indicatorTabTextActive: {
     color: '#FFFFFF',
   },
+  tabCountBadge: {
+    backgroundColor: '#E6F4F2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  tabCountBadgeActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  tabCountText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
   metricHighlightCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    gap: 14,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   metricHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 10,
   },
   metricTitle: {
     fontSize: 17,
+    fontWeight: '900',
+    color: Colors.primaryDark,
+    lineHeight: 24,
+  },
+  metricSub: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  latestBanner: {
+    gap: 8,
+    backgroundColor: '#F8FAFA',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  latestLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.accent,
+    letterSpacing: 0.5,
+  },
+  latestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  latestValueWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    flexShrink: 1,
+  },
+  latestValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: Colors.primaryDark,
+  },
+  latestUnit: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textMuted,
+  },
+  flagContainer: {
+    alignItems: 'flex-start',
+    flexShrink: 0,
+  },
+  flagBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  flagBadgeText: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  latestDate: {
+    fontSize: 12.5,
+    color: Colors.textMuted,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  singlePointBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F0FDFA',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#99F6E4',
+  },
+  singlePointTitle: {
+    fontSize: 15.5,
     fontWeight: '800',
     color: Colors.primaryDark,
   },
-  metricSub: {
-    fontSize: 12,
-    fontWeight: '500',
+  singlePointDesc: {
+    fontSize: 13.5,
     color: Colors.textMuted,
     marginTop: 2,
+    lineHeight: 19,
   },
-  metricBadge: {
-    flexDirection: 'row',
+  noDataBox: {
+    padding: 24,
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.surface,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
-  metricBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primaryDark,
+  noDataText: {
+    fontSize: 14,
+    color: Colors.textMuted,
+    fontWeight: '600',
   },
   infoCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    gap: 6,
+    gap: 10,
   },
   infoHeader: {
     flexDirection: 'row',
@@ -238,14 +492,66 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   infoTitle: {
-    fontSize: 14,
+    flex: 1,
+    fontSize: 16,
     fontWeight: '800',
     color: Colors.primaryDark,
   },
   infoText: {
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.textMain,
-    lineHeight: 18,
+    lineHeight: 20,
     fontWeight: '500',
+  },
+  emptyContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    gap: 14,
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E6F4F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.primaryDark,
+    textAlign: 'center',
+  },
+  emptyDesc: {
+    fontSize: 14,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  scanNowBtn: {
+    backgroundColor: '#15803D',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 54,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    marginTop: 8,
+    width: '100%',
+  },
+  scanNowBtnText: {
+    flexShrink: 1,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

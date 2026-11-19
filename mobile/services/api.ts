@@ -6,8 +6,8 @@ import { DocumentDetail, DocumentSummary, Profile, CareLink } from '../types';
 const TOKEN_KEY = 'mediread_auth_token';
 const SERVER_URL_KEY = 'mediread_server_url';
 
-// Default LAN IP for physical device / emulator access to FastAPI
-export const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.161.30.195:8000';
+// Default LAN IP or Cloud URL for physical device / emulator access to FastAPI
+export const DEFAULT_API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.161.30.195:8000').trim().replace(/\/+$/, '');
 
 class ApiService {
   private baseUrl: string = DEFAULT_API_URL;
@@ -110,6 +110,10 @@ class ApiService {
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    if (!this.cachedToken) {
+      await this.initToken();
+    }
+
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
       Accept: 'application/json',
@@ -141,7 +145,7 @@ class ApiService {
   }
 
   async login(payload: { user_id?: string; phone?: string; password?: string }): Promise<{ access_token: string; profile: Profile }> {
-    const res = await this.request<{ access_token: string; profile: Profile }>('/api/v1/auth/login', {
+    const res = await this.request<any>('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -149,11 +153,14 @@ class ApiService {
     if (res.access_token) {
       await this.setToken(res.access_token);
     }
-    return res;
+    return {
+      access_token: res.access_token,
+      profile: res.profile || res.user,
+    };
   }
 
   async register(payload: { full_name: string; phone?: string; password: string; birth_year?: number; sex?: string; role?: string }): Promise<{ access_token: string; profile: Profile }> {
-    const res = await this.request<{ access_token: string; profile: Profile }>('/api/v1/auth/register', {
+    const res = await this.request<any>('/api/v1/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -161,7 +168,10 @@ class ApiService {
     if (res.access_token) {
       await this.setToken(res.access_token);
     }
-    return res;
+    return {
+      access_token: res.access_token,
+      profile: res.profile || res.user,
+    };
   }
 
   async getMe(): Promise<Profile> {
@@ -170,6 +180,12 @@ class ApiService {
 
   // Documents Endpoints
   async listDocuments(): Promise<DocumentSummary[]> {
+    if (!this.cachedToken) {
+      await this.initToken();
+    }
+    if (!this.cachedToken) {
+      return [];
+    }
     return this.request<DocumentSummary[]>('/api/v1/documents');
   }
 
@@ -178,6 +194,9 @@ class ApiService {
   }
 
   async uploadDocument(fileUri: string, fileName: string, docType: 'lab_report' | 'prescription' = 'lab_report'): Promise<{ document_id: string; status: string; message: string }> {
+    if (!this.cachedToken) {
+      await this.initToken();
+    }
     const type = fileName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
     const uploadUrl = `${this.baseUrl}/api/v1/documents/upload`;
 
@@ -237,14 +256,35 @@ class ApiService {
   }
 
   async confirmDocument(id: string, confirmedData: any): Promise<any> {
+    const payload = (typeof confirmedData === 'object' && !Array.isArray(confirmedData) && confirmedData !== null)
+      ? confirmedData
+      : { data: confirmedData };
     return this.request(`/api/v1/documents/${id}/confirm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmed_data: confirmedData }),
+      body: JSON.stringify({ confirmed_data: payload }),
     });
   }
 
   // Trends
+  async getLabIndicators(): Promise<Array<{
+    code: string;
+    name: string;
+    unit: string;
+    low?: number;
+    high?: number;
+    count: number;
+    latest_value?: number;
+    latest_flag?: string;
+  }>> {
+    try {
+      const res = await this.request<any>('/api/v1/labs/indicators');
+      return Array.isArray(res) ? res : [];
+    } catch {
+      return [];
+    }
+  }
+
   async getTrends(code: string = 'GLU'): Promise<any[]> {
     try {
       const res = await this.request<any>(`/api/v1/medical/trends?indicator_code=${code}`);
@@ -269,6 +309,34 @@ class ApiService {
   async getCareLinks(): Promise<CareLink[]> {
     try {
       return await this.request<CareLink[]>('/api/v1/care-links');
+    } catch {
+      return [];
+    }
+  }
+
+  async connectCareLink(code: string): Promise<any> {
+    return this.request('/api/v1/care-links/connect-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  async acceptCareLink(linkId: string): Promise<any> {
+    return this.request(`/api/v1/care-links/${linkId}/accept`, {
+      method: 'POST',
+    });
+  }
+
+  async revokeCareLink(linkId: string): Promise<any> {
+    return this.request(`/api/v1/care-links/${linkId}/revoke`, {
+      method: 'POST',
+    });
+  }
+
+  async listPatientDocuments(patientId: string): Promise<DocumentSummary[]> {
+    try {
+      return await this.request<DocumentSummary[]>(`/api/v1/documents?patient_id=${patientId}`);
     } catch {
       return [];
     }

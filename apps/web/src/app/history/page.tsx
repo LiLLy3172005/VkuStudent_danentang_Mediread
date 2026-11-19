@@ -1,65 +1,91 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { History, FileText, CheckCircle2, AlertTriangle, Clock, ArrowRight, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import {
+  History,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  ArrowRight,
+  Loader2,
+  Pill,
+  ShieldCheck,
+  User,
+} from 'lucide-react';
 import { api } from '../../lib/api';
 import { DocumentSummary } from '../../lib/types';
 import { TTSPlayer } from '../../components/Footer';
 
-export default function HistoryPage() {
+function HistoryContent() {
+  const searchParams = useSearchParams();
+  const patientIdParam = searchParams.get('patient_id') || undefined;
+
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.listDocuments()
+    api.listDocuments(patientIdParam)
       .then((data) => {
         setDocs(data);
         setLoading(false);
       })
       .catch(() => {
-        // Fallback sample data for staging/presentation
+        // Fallback sample data
         setDocs([
           {
             id: 'sample-doc-1',
             user_id: 'user-1',
-            doc_type: 'lab_report',
+            doc_type: 'prescription',
             status: 'needs_review',
-            facility_name: 'Bệnh viện Đại học Y Hà Nội',
-            issued_date: '2026-11-12',
-            ocr_confidence: 0.88,
+            facility_name: 'BV Tâm Thần TP Cần Thơ',
+            issued_date: '2019-04-24',
+            ocr_confidence: 0.96,
             is_pii_masked: true,
             created_at: new Date().toISOString(),
           },
           {
             id: 'sample-doc-2',
             user_id: 'user-1',
-            doc_type: 'prescription',
+            doc_type: 'lab_report',
             status: 'confirmed',
-            facility_name: 'Phòng khám Đa khoa Quốc tế',
-            issued_date: '2026-11-05',
-            ocr_confidence: 0.94,
+            facility_name: 'Bệnh viện Đại học Y Dược',
+            issued_date: '2026-11-12',
+            ocr_confidence: 0.88,
             is_pii_masked: true,
-            created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+            created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
           },
         ]);
         setLoading(false);
       });
-  }, []);
+  }, [patientIdParam]);
+
+  const speechText = patientIdParam
+    ? 'Đây là danh sách hồ sơ khám bệnh và đơn thuốc của người thân mà bác hoặc bạn đang theo dõi.'
+    : 'Đây là danh sách các lần khám bệnh của bác. Bác có thể bấm vào từng phiếu để nghe đọc to kết quả hoặc danh sách thuốc.';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-[#073F46]">Lịch Sử Khám Bệnh</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-black text-[#073F46]">
+              {patientIdParam ? 'Hồ Sơ Y Tế Của Người Thân' : 'Lịch Sử Khám Bệnh'}
+            </h1>
+            {patientIdParam && (
+              <span className="bg-[#DDEEEB] text-[#073F46] text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                <User className="w-3.5 h-3.5" />
+                Hồ sơ theo dõi
+              </span>
+            )}
+          </div>
           <p className="text-[#5B6B77] text-base mt-1">
-            Danh sách tất cả các phiếu xét nghiệm và đơn thuốc đã được số hóa
+            Danh sách tất cả các phiếu xét nghiệm và đơn thuốc đã được số hóa & bảo mật
           </p>
         </div>
-        <TTSPlayer
-          text="Đây là danh sách các lần khám bệnh của bác. Bác có thể bấm vào từng lần để xem chi tiết các chỉ số máu hoặc danh sách thuốc."
-          label="Nghe hướng dẫn"
-        />
+        <TTSPlayer text={speechText} label="Nghe hướng dẫn" />
       </div>
 
       {loading ? (
@@ -70,7 +96,7 @@ export default function HistoryPage() {
       ) : docs.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center text-[#5B6B77] space-y-4 border-2 border-dashed border-[#DDEEEB]">
           <History className="w-12 h-12 mx-auto text-[#8A8A8A]" />
-          <h3 className="text-xl font-bold text-[#073F46]">Bác chưa có phiếu khám nào</h3>
+          <h3 className="text-xl font-bold text-[#073F46]">Chưa có phiếu khám nào</h3>
           <p>Hãy bấm nút bên dưới để chụp và quét phiếu đầu tiên nhé.</p>
           <Link
             href="/scan"
@@ -94,15 +120,15 @@ export default function HistoryPage() {
                 <div className="flex items-center gap-4">
                   <div
                     className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${
-                      isLab ? 'bg-[#DDEEEB] text-[#0B6B73]' : 'bg-amber-100 text-amber-800'
+                      isLab ? 'bg-[#DDEEEB] text-[#0B6B73]' : 'bg-emerald-100 text-emerald-800'
                     }`}
                   >
-                    <FileText className="w-7 h-7" />
+                    {isLab ? <FileText className="w-7 h-7" /> : <Pill className="w-7 h-7" />}
                   </div>
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-lg font-black text-[#073F46]">
-                        {isLab ? 'Phiếu xét nghiệm sinh hóa' : 'Đơn thuốc y tế'}
+                        {isLab ? 'Phiếu xét nghiệm sinh hóa' : 'Đơn thuốc bác sĩ kê'}
                       </span>
                       {doc.is_pii_masked && (
                         <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
@@ -152,5 +178,13 @@ export default function HistoryPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-gray-500 font-bold">Đang tải lịch sử khám...</div>}>
+      <HistoryContent />
+    </Suspense>
   );
 }

@@ -34,6 +34,11 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (!phoneNumber || phoneNumber.replace(/\s+/g, '').length < 6) {
+      Alert.alert('Lưu ý', 'Vui lòng nhập số điện thoại hợp lệ (tối thiểu 6 số) để dùng khi đăng nhập.');
+      return;
+    }
+
     if (!password || password.length < 6) {
       Alert.alert('Lưu ý', 'Mật khẩu phải có ít nhất 6 ký tự.');
       return;
@@ -49,7 +54,7 @@ export default function RegisterScreen() {
       await register({
         full_name: fullName.trim(),
         birth_year: parseInt(birthYear, 10) || 1960,
-        phone: phoneNumber.trim() || undefined,
+        phone: phoneNumber.trim(),
         password,
         sex,
         role,
@@ -66,34 +71,37 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <ArrowLeft size={22} color={Colors.primaryDark} />
-          <Text style={styles.backText}>Quay lại</Text>
+          <ArrowLeft size={20} color={Colors.primaryDark} />
+          <Text style={styles.backText} allowFontScaling={false}>Quay lại</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Tạo Hồ Sơ Mới</Text>
-        <Text style={styles.subtitle}>Điền thông tin để MediRead AI điều chỉnh cỡ chữ & lời giải thích phù hợp độ tuổi</Text>
+        <Text style={styles.title} allowFontScaling={false}>Tạo Hồ Sơ Mới</Text>
+        <Text style={styles.subtitle} allowFontScaling={false}>
+          Điền thông tin để MediRead AI điều chỉnh cỡ chữ & lời giải thích phù hợp độ tuổi
+        </Text>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Họ và tên *</Text>
+          <Text style={styles.label} allowFontScaling={false}>Họ và tên *</Text>
           <View style={styles.inputWrapper}>
-            <User size={18} color={Colors.textMuted} style={{ marginRight: 10 }} />
+            <User size={17} color={Colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.input}
               placeholder="Ví dụ: Bác Nguyễn Văn An"
               placeholderTextColor={Colors.textSubtle}
               value={fullName}
               onChangeText={setFullName}
+              allowFontScaling={false}
             />
           </View>
         </View>
 
         <View style={styles.row}>
           <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.label}>Năm sinh</Text>
+            <Text style={styles.label} allowFontScaling={false}>Năm sinh</Text>
             <View style={styles.inputWrapper}>
-              <Calendar size={18} color={Colors.textMuted} style={{ marginRight: 10 }} />
+              <Calendar size={17} color={Colors.textMuted} style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.input}
                 placeholder="1960"
@@ -101,70 +109,85 @@ export default function RegisterScreen() {
                 maxLength={4}
                 value={birthYear}
                 onChangeText={setBirthYear}
+                allowFontScaling={false}
               />
             </View>
           </View>
 
           <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={styles.label}>Giới tính</Text>
+            <Text style={styles.label} allowFontScaling={false}>Giới tính</Text>
             <View style={styles.genderRow}>
               <TouchableOpacity
                 style={[styles.genderBtn, sex === 'nam' && styles.genderBtnActive]}
                 onPress={() => setSex('nam')}
               >
-                <Text style={[styles.genderText, sex === 'nam' && styles.genderTextActive]}>Nam</Text>
+                <Text style={[styles.genderText, sex === 'nam' && styles.genderTextActive]} allowFontScaling={false}>
+                  Nam
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.genderBtn, sex === 'nu' && styles.genderBtnActive]}
                 onPress={() => setSex('nu')}
               >
-                <Text style={[styles.genderText, sex === 'nu' && styles.genderTextActive]}>Nữ</Text>
+                <Text style={[styles.genderText, sex === 'nu' && styles.genderTextActive]} allowFontScaling={false}>
+                  Nữ
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Vai trò sử dụng</Text>
+          <Text style={styles.label} allowFontScaling={false}>Vai trò sử dụng</Text>
           <View style={styles.roleContainer}>
             <TouchableOpacity
               style={[styles.roleCard, role === 'patient' && styles.roleCardActive]}
               onPress={() => setRole('patient')}
             >
-              <Text style={styles.roleEmoji}>👴</Text>
-              <Text style={[styles.roleTitle, role === 'patient' && styles.roleTitleActive]}>Người Bệnh</Text>
-              <Text style={styles.roleDesc}>Cần chữ to, giải thích đơn giản và đọc to bằng giọng nói</Text>
+              <Text style={styles.roleEmoji} allowFontScaling={false}>👴</Text>
+              <Text style={[styles.roleTitle, role === 'patient' && styles.roleTitleActive]} allowFontScaling={false}>
+                Người Bệnh
+              </Text>
+              <Text style={styles.roleDesc} allowFontScaling={false}>
+                Cần chữ to, giải thích đơn giản và đọc to bằng giọng nói
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.roleCard, role === 'caregiver' && styles.roleCardActive]}
               onPress={() => setRole('caregiver')}
             >
-              <Text style={styles.roleEmoji}>🤝</Text>
-              <Text style={[styles.roleTitle, role === 'caregiver' && styles.roleTitleActive]}>Người Chăm Sóc</Text>
-              <Text style={styles.roleDesc}>Theo dõi đơn thuốc và chỉ số cho người thân trong gia đình</Text>
+              <Text style={styles.roleEmoji} allowFontScaling={false}>🤝</Text>
+              <Text style={[styles.roleTitle, role === 'caregiver' && styles.roleTitleActive]} allowFontScaling={false}>
+                Người Chăm Sóc
+              </Text>
+              <Text style={styles.roleDesc} allowFontScaling={false}>
+                Theo dõi đơn thuốc và chỉ số cho người thân trong gia đình
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Số điện thoại (tùy chọn)</Text>
+          <Text style={styles.label} allowFontScaling={false}>Số điện thoại đăng nhập *</Text>
           <View style={styles.inputWrapper}>
-            <Phone size={18} color={Colors.textMuted} style={{ marginRight: 10 }} />
+            <Phone size={17} color={Colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.input}
               placeholder="0912 345 678"
+              placeholderTextColor={Colors.textSubtle}
               keyboardType="phone-pad"
               value={phoneNumber}
               onChangeText={setPhoneNumber}
+              allowFontScaling={false}
             />
           </View>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Mật khẩu *</Text>
+          <Text style={styles.label} allowFontScaling={false}>Mật khẩu *</Text>
           <View style={styles.inputWrapper}>
-            <Shield size={18} color={Colors.textMuted} style={{ marginRight: 10 }} />
+            <Shield size={17} color={Colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.input}
               placeholder="Tối thiểu 6 ký tự"
@@ -172,14 +195,15 @@ export default function RegisterScreen() {
               secureTextEntry={true}
               value={password}
               onChangeText={setPassword}
+              allowFontScaling={false}
             />
           </View>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Xác nhận mật khẩu *</Text>
+          <Text style={styles.label} allowFontScaling={false}>Xác nhận mật khẩu *</Text>
           <View style={styles.inputWrapper}>
-            <Shield size={18} color={Colors.textMuted} style={{ marginRight: 10 }} />
+            <Shield size={17} color={Colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.input}
               placeholder="Nhập lại mật khẩu"
@@ -187,6 +211,7 @@ export default function RegisterScreen() {
               secureTextEntry={true}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
+              allowFontScaling={false}
             />
           </View>
         </View>
@@ -200,7 +225,9 @@ export default function RegisterScreen() {
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitBtnText}>Hoàn Tất Đăng Ký</Text>
+            <Text style={styles.submitBtnText} allowFontScaling={false}>
+              Hoàn Tất Đăng Ký
+            </Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -214,44 +241,44 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   container: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 18,
+    paddingBottom: 36,
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: 6,
+    marginBottom: 12,
   },
   backText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: Colors.primaryDark,
   },
   title: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '800',
     color: Colors.primaryDark,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textMuted,
-    lineHeight: 20,
-    marginTop: 6,
-    marginBottom: 20,
+    lineHeight: 19,
+    marginTop: 4,
+    marginBottom: 16,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: Colors.primaryDark,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -260,19 +287,19 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 50,
+    paddingHorizontal: 12,
+    height: 46,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: Colors.textMain,
   },
   genderRow: {
     flexDirection: 'row',
     gap: 8,
-    height: 50,
+    height: 46,
   },
   genderBtn: {
     flex: 1,
@@ -288,7 +315,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.primaryDark,
   },
   genderText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: Colors.primaryDark,
   },
@@ -297,13 +324,13 @@ const styles = StyleSheet.create({
   },
   roleContainer: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   roleCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 12,
+    padding: 10,
     borderWidth: 1.5,
     borderColor: Colors.border,
     alignItems: 'center',
@@ -313,14 +340,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryPale,
   },
   roleEmoji: {
-    fontSize: 28,
-    marginBottom: 6,
+    fontSize: 24,
+    marginBottom: 4,
   },
   roleTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
     color: Colors.primaryDark,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   roleTitleActive: {
     color: Colors.primary,
@@ -333,14 +360,14 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     backgroundColor: Colors.primary,
-    height: 52,
-    borderRadius: 16,
+    height: 46,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 10,
   },
   submitBtnText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
   },

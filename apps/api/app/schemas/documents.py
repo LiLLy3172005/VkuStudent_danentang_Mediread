@@ -29,7 +29,7 @@ class DocumentUploadResponse(BaseModel):
 
 
 class ExtractionConfirmRequest(BaseModel):
-    confirmed_data: Dict[str, Any] = Field(..., description="Dữ liệu do người dùng chỉnh sửa hoặc xác nhận")
+    confirmed_data: Any = Field(default_factory=dict, description="Dữ liệu do người dùng chỉnh sửa hoặc xác nhận")
     notes: Optional[str] = None
 
 

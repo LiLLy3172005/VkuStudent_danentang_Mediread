@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   Alert,
 } from 'react-native';
+import { AppText as Text } from '../../components/common/AppText';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
@@ -27,7 +27,7 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { fontScale, setFontScale, ttsRate, setTtsRate } = usePreferences();
+  const { fontScale, setFontScale, ttsRate, setTtsRate, fs } = usePreferences();
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bác có chắc chắn muốn đăng xuất tài khoản này không?', [
@@ -51,60 +51,68 @@ export default function ProfileScreen() {
         {/* User Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarLarge}>
-            <Text style={styles.avatarLargeText}>
+            <Text style={styles.avatarLargeText} fixedSize>
               {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
             </Text>
           </View>
 
-          <Text style={styles.userName}>{user?.full_name || 'Người dùng MediRead'}</Text>
+          <Text style={styles.userName}>
+            {user?.full_name || 'Người dùng MediRead'}
+          </Text>
           <Text style={styles.userRole}>
             {user?.role === 'caregiver' ? '🤝 Người chăm sóc gia đình' : '👴 Bệnh nhân'}
             {user?.birth_year ? ` • Sinh năm ${user.birth_year}` : ''}
           </Text>
 
           <View style={styles.verifiedRow}>
-            <ShieldCheck size={14} color="#15803D" />
-            <Text style={styles.verifiedText}>Dữ liệu y tế mã hóa an toàn trên Supabase</Text>
+            <ShieldCheck size={14} color="#15803D" style={{ flexShrink: 0 }} />
+            <Text style={styles.verifiedText}>
+              Dữ liệu y tế mã hóa an toàn trên Supabase
+            </Text>
           </View>
         </View>
 
         {/* Accessibility: Font Size Settings */}
         <View style={styles.settingsSection}>
           <View style={styles.sectionHeader}>
-            <Type size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Cỡ Chữ Ứng Dụng</Text>
+            <Type size={20} color={Colors.primary} style={{ flexShrink: 0 }} />
+            <Text style={styles.sectionTitle}>
+              Cỡ Chữ Ứng Dụng
+            </Text>
           </View>
-          <Text style={styles.sectionSub}>Chọn kích thước chữ phù hợp với mắt của bác:</Text>
+          <Text style={styles.sectionSub}>
+            Chọn kích thước chữ phù hợp với mắt của bác (áp dụng cho toàn bộ app):
+          </Text>
 
           <View style={styles.scaleOptionsRow}>
             <TouchableOpacity
-              style={[styles.scaleOption, fontScale === 1.0 && styles.scaleOptionActive]}
+              style={[styles.scaleOption, (fontScale <= 1.05) && styles.scaleOptionActive]}
               onPress={() => setFontScale(1.0)}
             >
-              <Text style={[styles.scaleLabel, fontScale === 1.0 && styles.scaleLabelActive, { fontSize: 13 }]}>
+              <Text style={[styles.scaleLabel, (fontScale <= 1.05) && styles.scaleLabelActive, { fontSize: 13 }]} fixedSize>
                 Chuẩn
               </Text>
-              <Text style={styles.scaleSub}>100%</Text>
+              <Text style={styles.scaleSub} fixedSize>100%</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.scaleOption, fontScale === 1.25 && styles.scaleOptionActive]}
-              onPress={() => setFontScale(1.25)}
+              style={[styles.scaleOption, (fontScale > 1.05 && fontScale <= 1.35) && styles.scaleOptionActive]}
+              onPress={() => setFontScale(1.30)}
             >
-              <Text style={[styles.scaleLabel, fontScale === 1.25 && styles.scaleLabelActive, { fontSize: 15 }]}>
+              <Text style={[styles.scaleLabel, (fontScale > 1.05 && fontScale <= 1.35) && styles.scaleLabelActive, { fontSize: 15 }]} fixedSize>
                 Lớn
               </Text>
-              <Text style={styles.scaleSub}>125%</Text>
+              <Text style={styles.scaleSub} fixedSize>130%</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.scaleOption, fontScale === 1.45 && styles.scaleOptionActive]}
+              style={[styles.scaleOption, (fontScale > 1.35) && styles.scaleOptionActive]}
               onPress={() => setFontScale(1.45)}
             >
-              <Text style={[styles.scaleLabel, fontScale === 1.45 && styles.scaleLabelActive, { fontSize: 17 }]}>
+              <Text style={[styles.scaleLabel, (fontScale > 1.35) && styles.scaleLabelActive, { fontSize: 17 }]} fixedSize>
                 Rất lớn
               </Text>
-              <Text style={styles.scaleSub}>145%</Text>
+              <Text style={styles.scaleSub} fixedSize>145%</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -112,10 +120,14 @@ export default function ProfileScreen() {
         {/* Accessibility: Voice Reading Speed */}
         <View style={styles.settingsSection}>
           <View style={styles.sectionHeader}>
-            <Volume2 size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Tốc Độ Giọng Đọc (TTS)</Text>
+            <Volume2 size={20} color={Colors.primary} style={{ flexShrink: 0 }} />
+            <Text style={styles.sectionTitle}>
+              Tốc Độ Giọng Đọc (TTS)
+            </Text>
           </View>
-          <Text style={styles.sectionSub}>Giọng đọc tiếng Việt tự động cho người cao tuổi:</Text>
+          <Text style={styles.sectionSub}>
+            Giọng đọc tiếng Việt tự động cho người cao tuổi:
+          </Text>
 
           <View style={styles.scaleOptionsRow}>
             <TouchableOpacity
@@ -123,7 +135,7 @@ export default function ProfileScreen() {
               onPress={() => setTtsRate(0.75)}
             >
               <Text style={[styles.scaleLabel, ttsRate === 0.75 && styles.scaleLabelActive]}>Chậm rãi</Text>
-              <Text style={styles.scaleSub}>0.75x</Text>
+              <Text style={styles.scaleSub} fixedSize>0.75x</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -131,7 +143,7 @@ export default function ProfileScreen() {
               onPress={() => setTtsRate(0.85)}
             >
               <Text style={[styles.scaleLabel, ttsRate === 0.85 && styles.scaleLabelActive]}>Dễ nghe</Text>
-              <Text style={styles.scaleSub}>0.85x</Text>
+              <Text style={styles.scaleSub} fixedSize>0.85x</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -139,7 +151,7 @@ export default function ProfileScreen() {
               onPress={() => setTtsRate(1.0)}
             >
               <Text style={[styles.scaleLabel, ttsRate === 1.0 && styles.scaleLabelActive]}>Bình thường</Text>
-              <Text style={styles.scaleSub}>1.0x</Text>
+              <Text style={styles.scaleSub} fixedSize>1.0x</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -151,21 +163,27 @@ export default function ProfileScreen() {
           activeOpacity={0.7}
         >
           <View style={styles.actionRowLeft}>
-            <View style={[styles.actionIconBox, { backgroundColor: '#E0F2FE' }]}>
+            <View style={[styles.actionIconBox, { backgroundColor: '#E0F2FE', flexShrink: 0 }]}>
               <Users size={20} color="#0369A1" />
             </View>
-            <View>
-              <Text style={styles.actionRowTitle}>Người Thân & Chăm Sóc</Text>
-              <Text style={styles.actionRowDesc}>Xem hoặc cấp quyền chia sẻ kết quả cho con cái</Text>
+            <View style={{ flex: 1, paddingRight: 6 }}>
+              <Text style={styles.actionRowTitle}>
+                Người Thân & Chăm Sóc
+              </Text>
+              <Text style={styles.actionRowDesc}>
+                Xem hoặc cấp quyền chia sẻ kết quả cho con cái
+              </Text>
             </View>
           </View>
-          <ChevronRight size={20} color={Colors.textMuted} />
+          <ChevronRight size={20} color={Colors.textMuted} style={{ flexShrink: 0 }} />
         </TouchableOpacity>
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-          <LogOut size={18} color="#DC2626" />
-          <Text style={styles.logoutBtnText}>Đăng Xuất Tài Khoản</Text>
+          <LogOut size={18} color="#DC2626" style={{ flexShrink: 0 }} />
+          <Text style={styles.logoutBtnText}>
+            Đăng Xuất Tài Khoản
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

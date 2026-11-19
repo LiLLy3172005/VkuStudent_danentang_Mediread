@@ -7,7 +7,7 @@ prior to processing and persistent storage.
 import os
 import re
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import cv2
 import numpy as np
 
@@ -149,6 +149,31 @@ def mask_pii_boxes(image: np.ndarray, ocr_boxes_and_texts: List[Dict[str, Any]])
     return img_out, mask_count
 
 
+def _safe_imread(path_str: str) -> Optional[np.ndarray]:
+    """Reads image safely handling Windows Unicode paths."""
+    try:
+        with open(path_str, "rb") as f:
+            data = bytearray(f.read())
+        arr = np.asarray(data, dtype=np.uint8)
+        return cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except Exception:
+        return None
+
+
+def _safe_imwrite(path_str: str, img: np.ndarray) -> bool:
+    """Writes image safely handling Windows Unicode paths."""
+    try:
+        ext = os.path.splitext(path_str)[1] or ".jpg"
+        success, buffer = cv2.imencode(ext, img)
+        if success:
+            with open(path_str, "wb") as f:
+                f.write(buffer)
+            return True
+        return False
+    except Exception:
+        return False
+
+
 def mask_pii_from_image(input_image_path: str | Path, output_image_path: str | Path, ocr_cells: List[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Main entry point for PII masking.
@@ -158,7 +183,7 @@ def mask_pii_from_image(input_image_path: str | Path, output_image_path: str | P
     output_path = Path(output_image_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    img = cv2.imread(input_path)
+    img = _safe_imread(input_path)
     if img is None:
         raise ValueError(f"Cannot read image for PII masking: {input_path}")
 
@@ -171,7 +196,7 @@ def mask_pii_from_image(input_image_path: str | Path, output_image_path: str | P
         img_masked, text_masks = mask_pii_boxes(img_masked, ocr_cells)
         total_masks += text_masks
 
-    cv2.imwrite(str(output_path), img_masked)
+    _safe_imwrite(str(output_path), img_masked)
 
     return {
         "is_pii_masked": True,

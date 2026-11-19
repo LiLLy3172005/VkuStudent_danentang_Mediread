@@ -16,7 +16,7 @@ import {
   HeartPulse,
   UserCheck,
   LogOut,
-  User,
+  Pill,
 } from 'lucide-react';
 import { useElderlyPreferences } from './ElderlyPreferencesContext';
 import { api } from '../lib/api';
@@ -34,7 +34,7 @@ export function Header() {
   }, [pathname]);
 
   const handleLogout = () => {
-    if (confirm('Bác/Bạn có chắc muốn đăng xuất tài khoản này?')) {
+    if (confirm('Bác hoặc bạn có chắc muốn đăng xuất tài khoản này?')) {
       api.logout();
       setCurrentUser(null);
       router.push('/login');
@@ -47,7 +47,7 @@ export function Header() {
     { href: '/history', label: 'Lịch sử', icon: History },
     { href: '/trends', label: 'Xu hướng', icon: TrendingUp },
     { href: '/medications', label: 'Lịch thuốc', icon: Clock },
-    { href: '/care', label: 'Người chăm sóc', icon: Users },
+    { href: '/care', label: 'Người thân & Chăm sóc', icon: Users },
     { href: '/settings', label: 'Cài đặt', icon: Settings },
   ];
 
@@ -57,7 +57,7 @@ export function Header() {
       <div className="bg-[#073F46] text-white px-4 py-1.5 text-sm flex items-center justify-between">
         <div className="flex items-center gap-2 font-medium">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>MediRead AI — Trợ lý sức khỏe cho người cao tuổi</span>
+          <span>MediRead AI — Trợ lý y tế thông minh & Lịch uống thuốc cho người cao tuổi</span>
         </div>
 
         {/* Accessibility Toolbar */}
@@ -108,7 +108,7 @@ export function Header() {
               <span className="text-2xl font-black text-[#073F46] tracking-tight">
                 MediRead <span className="text-[#0B6B73]">AI</span>
               </span>
-              <p className="text-xs text-[#5B6B77] font-medium">Đọc đơn & Phiếu xét nghiệm thông minh</p>
+              <p className="text-xs text-[#5B6B77] font-medium">Đọc đơn thuốc & Phiếu xét nghiệm thông minh</p>
             </div>
           </Link>
 
@@ -151,7 +151,7 @@ export function Header() {
                       {currentUser.full_name}
                     </p>
                     <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-[#DDEEEB] text-[#073F46]">
-                      {currentUser.role === 'caregiver' ? 'Chăm sóc' : 'Bệnh nhân'}
+                      {currentUser.role === 'caregiver' ? 'Chăm sóc' : 'Người bệnh'}
                     </span>
                   </div>
                 </Link>

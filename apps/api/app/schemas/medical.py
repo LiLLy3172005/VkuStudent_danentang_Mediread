@@ -30,9 +30,9 @@ class LabResultItem(BaseModel):
 class LabTrendPoint(BaseModel):
     measured_at: date
     value_num: float
-    unit: str
-    flag: str
-    document_id: uuid.UUID
+    unit: str = ""
+    flag: str = "UNKNOWN"       # Optional với default để tránh crash khi DB trả None
+    document_id: Optional[uuid.UUID] = None
 
 
 class LabTrendResponse(BaseModel):
@@ -102,3 +102,7 @@ class CareLinkItem(BaseModel):
 
 class RequestCareLinkRequest(BaseModel):
     patient_id: uuid.UUID
+
+
+class ConnectCodeRequest(BaseModel):
+    code: str = Field(..., description="Mã kết nối hoặc ID bệnh nhân hoặc quét từ mã QR")

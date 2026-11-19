@@ -34,17 +34,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const me = await api.getMe();
         setUser(me);
       } else {
-        // Auto sign-in to primary demo account for immediate evaluation
-        const accounts = await api.getAccounts();
-        if (accounts && accounts.length > 0) {
-          const defaultUser = accounts[0];
-          const loginRes = await api.login({ user_id: defaultUser.id });
-          setToken(loginRes.access_token);
-          setUser(loginRes.profile);
-        }
+        setToken(null);
+        setUser(null);
       }
     } catch (e) {
       console.warn('Init auth failed:', e);
+      await api.clearToken();
+      setToken(null);
+      setUser(null);
     } finally {
       setLoading(false);
     }
