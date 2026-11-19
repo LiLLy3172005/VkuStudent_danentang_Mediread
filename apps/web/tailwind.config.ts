@@ -8,6 +8,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-be-vietnam-pro)', '"Be Vietnam Pro"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+      },
       colors: {
         primary: {
           DEFAULT: "#0B6B73", // Deep Medical Teal
