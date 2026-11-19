@@ -6,8 +6,10 @@ import { DocumentDetail, DocumentSummary, Profile, CareLink } from '../types';
 const TOKEN_KEY = 'mediread_auth_token';
 const SERVER_URL_KEY = 'mediread_server_url';
 
-// Default LAN IP or Cloud URL for physical device / emulator access to FastAPI
-export const DEFAULT_API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.161.30.195:8000').trim().replace(/\/+$/, '');
+// Default Public Cloud URL for APK builds (fallback to Cloudflare Tunnel)
+export const DEFAULT_API_URL = (
+  process.env.EXPO_PUBLIC_API_URL || 'https://walk-difference-squad-genetics.trycloudflare.com'
+).trim().replace(/\/+$/, '');
 
 class ApiService {
   private baseUrl: string = DEFAULT_API_URL;
