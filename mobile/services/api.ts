@@ -6,9 +6,9 @@ import { DocumentDetail, DocumentSummary, Profile, CareLink } from '../types';
 const TOKEN_KEY = 'mediread_auth_token';
 const SERVER_URL_KEY = 'mediread_server_url';
 
-// Default Public Cloud URL for APK builds (fallback to Cloudflare Tunnel)
+// Default Public Cloud URL for APK builds (fallback to Permanent Static Ngrok URL)
 export const DEFAULT_API_URL = (
-  process.env.EXPO_PUBLIC_API_URL || 'https://walk-difference-squad-genetics.trycloudflare.com'
+  process.env.EXPO_PUBLIC_API_URL || 'https://supersulfureted-superciliously-kasen.ngrok-free.dev'
 ).trim().replace(/\/+$/, '');
 
 class ApiService {

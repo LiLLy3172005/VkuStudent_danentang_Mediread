@@ -54,3 +54,8 @@ backend/uploads/
 
 *.tsbuildinfo
 
+# Binaries & Tunnels
+*.exe
+*.old
+start_tunnel.bat
+

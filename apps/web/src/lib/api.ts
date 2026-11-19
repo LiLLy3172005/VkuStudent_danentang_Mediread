@@ -7,7 +7,7 @@ export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host.endsWith('.vercel.app') || host.endsWith('.pages.dev') || host.endsWith('.netlify.app')) {
-      return 'https://walk-difference-squad-genetics.trycloudflare.com';
+      return 'https://supersulfureted-superciliously-kasen.ngrok-free.dev';
     }
     const protocol = window.location.protocol;
     return `${protocol}//${host}:8000`;

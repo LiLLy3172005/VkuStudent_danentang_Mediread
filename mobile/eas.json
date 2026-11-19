@@ -17,7 +17,7 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://walk-difference-squad-genetics.trycloudflare.com"
+        "EXPO_PUBLIC_API_URL": "https://supersulfureted-superciliously-kasen.ngrok-free.dev"
       }
     },
     "ios-simulator": {
@@ -25,7 +25,7 @@
         "simulator": true
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://walk-difference-squad-genetics.trycloudflare.com"
+        "EXPO_PUBLIC_API_URL": "https://supersulfureted-superciliously-kasen.ngrok-free.dev"
       }
     },
     "production": {
@@ -33,7 +33,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://walk-difference-squad-genetics.trycloudflare.com"
+        "EXPO_PUBLIC_API_URL": "https://supersulfureted-superciliously-kasen.ngrok-free.dev"
       }
     }
   },
