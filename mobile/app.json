@@ -13,7 +13,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ai.mediread.mobile"
+      "bundleIdentifier": "ai.mediread.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Ứng dụng cần quyền sử dụng máy ảnh để chụp đơn thuốc, phiếu xét nghiệm và quét mã QR người thân.",
+        "NSPhotoLibraryUsageDescription": "Ứng dụng cần quyền truy cập thư viện ảnh để tải lên phiếu khám bệnh.",
+        "NSMicrophoneUsageDescription": "Ứng dụng cần quyền sử dụng micro để hỗ trợ tương tác giọng nói.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "package": "ai.mediread.mobile",
@@ -34,7 +43,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "name": "MediRead AI",
+      "shortName": "MediRead",
+      "lang": "vi",
+      "themeColor": "#0B6B73",
+      "backgroundColor": "#F8FAFA",
+      "display": "standalone",
+      "orientation": "portrait"
     },
     "plugins": [
       "expo-router",

@@ -1,12 +1,28 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ElderlyPreferencesProvider } from "../components/ElderlyPreferencesContext";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 
+export const viewport: Viewport = {
+  themeColor: "#0B6B73",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
   title: "MediRead AI — Trợ lý Y khoa Thông minh cho Người cao tuổi",
   description: "Hệ thống hỗ trợ số hóa, đọc hiểu và quản lý phiếu xét nghiệm, đơn thuốc bằng OCR và AI an toàn.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "MediRead AI",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({

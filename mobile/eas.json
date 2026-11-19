@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 15.0.0"
+    "version": ">= 15.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -11,6 +12,17 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://walk-difference-squad-genetics.trycloudflare.com"
+      }
+    },
+    "ios-simulator": {
+      "ios": {
+        "simulator": true
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://walk-difference-squad-genetics.trycloudflare.com"
