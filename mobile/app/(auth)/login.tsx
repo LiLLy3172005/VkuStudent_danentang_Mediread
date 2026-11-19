@@ -257,7 +257,7 @@ export default function LoginScreen() {
                   setServerUrlInput(val);
                   setTestResult(null);
                 }}
-                placeholder="http://10.161.30.195:8000"
+                placeholder="https://your-api-domain.com"
                 placeholderTextColor={Colors.textSubtle}
                 autoCapitalize="none"
                 autoCorrect={false}
