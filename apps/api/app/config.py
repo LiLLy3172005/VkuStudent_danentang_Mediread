@@ -54,9 +54,9 @@ class Settings(BaseSettings):
         "http://172.16.0.2:3000",
         "http://172.16.0.2:8000",
     ]
-    # Regex matching all private LAN IPs (172.16-31.x.x, 192.168.x.x, 10.x.x.x), localhost, and tunnel/cloud domains (Vercel, Cloudflare, Netlify)
+    # Regex matching all private LAN IPs (172.16-31.x.x, 192.168.x.x, 10.x.x.x), localhost, and tunnel/cloud domains (Vercel, Cloudflare, Ngrok, Netlify)
     CORS_ORIGIN_REGEX: str = (
-        r"^https?://(localhost|127\.0\.0\.1|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|[a-zA-Z0-9-]+\.trycloudflare\.com|[a-zA-Z0-9-]+\.vercel\.app|[a-zA-Z0-9-]+\.pages\.dev|[a-zA-Z0-9-]+\.netlify\.app|[a-zA-Z0-9-]+\.mediread\.ai)(:\d+)?$"
+        r"^https?://(localhost|127\.0\.0\.1|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|[a-zA-Z0-9-]+\.trycloudflare\.com|[a-zA-Z0-9-]+\.ngrok-free\.(app|dev)|[a-zA-Z0-9-]+\.vercel\.app|[a-zA-Z0-9-]+\.pages\.dev|[a-zA-Z0-9-]+\.netlify\.app|[a-zA-Z0-9-]+\.mediread\.ai)(:\d+)?$"
     )
 
     RATE_LIMIT_DEFAULT: str = "100/minute"
