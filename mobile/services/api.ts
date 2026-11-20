@@ -349,6 +349,12 @@ class ApiService {
     });
   }
 
+  async deleteDocument(documentId: string): Promise<any> {
+    return this.request(`/api/v1/documents/${documentId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async listPatientDocuments(patientId: string): Promise<DocumentSummary[]> {
     try {
       return await this.request<DocumentSummary[]>(`/api/v1/documents?patient_id=${patientId}`);

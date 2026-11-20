@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   FileText,
   CheckCircle2,
@@ -19,6 +20,7 @@ import {
   Clock,
   PlusCircle,
   Stethoscope,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../../../lib/api';
 import { DocumentDetail, LabResultItem, MedicationItem } from '../../../lib/types';
@@ -34,6 +36,29 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [confirmSuccess, setConfirmSuccess] = useState(false);
   const [scheduleSuccessMsg, setScheduleSuccessMsg] = useState<string | null>(null);
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteDocument = async () => {
+    if (!doc?.id) return;
+    const isLab = doc.doc_type === 'lab_report';
+    const confirmed = window.confirm(
+      isLab
+        ? 'Bác/Bạn có chắc chắn muốn xóa phiếu xét nghiệm này không? Dữ liệu sẽ bị xóa hoàn toàn khỏi hồ sơ.'
+        : 'Bác/Bạn có chắc chắn muốn xóa đơn thuốc này không? Dữ liệu sẽ bị xóa hoàn toàn khỏi hồ sơ.'
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await api.deleteDocument(doc.id);
+      alert(isLab ? 'Đã xóa phiếu xét nghiệm thành công.' : 'Đã xóa đơn thuốc thành công.');
+      router.push('/history');
+    } catch (e: any) {
+      alert(e.message || 'Không thể xóa tài liệu.');
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     api.getDocumentDetail(docId)
@@ -564,6 +589,26 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           <Sparkles className="w-5 h-5 text-[#0B6B73]" />
           <span>Hỏi Bác Sĩ AI ngay</span>
         </Link>
+      </div>
+
+      {/* SECTION 5: DELETE DOCUMENT CARD */}
+      <div className="bg-white border-2 border-red-200 rounded-3xl p-6 shadow-card flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="space-y-1 text-center sm:text-left">
+          <h4 className="text-lg font-bold text-red-900">
+            {doc.doc_type === 'lab_report' ? 'Kết quả xét nghiệm không đúng?' : 'Đơn thuốc quét không đúng?'}
+          </h4>
+          <p className="text-sm text-gray-500">
+            Bác/Bạn có thể xóa tài liệu này nếu OCR nhận diện chưa chuẩn để chụp quét lại.
+          </p>
+        </div>
+        <button
+          onClick={handleDeleteDocument}
+          disabled={deleting}
+          className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-300 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition whitespace-nowrap"
+        >
+          <Trash2 className="w-5 h-5 text-red-600" />
+          <span>{doc.doc_type === 'lab_report' ? 'Xóa phiếu xét nghiệm này' : 'Xóa đơn thuốc này'}</span>
+        </button>
       </div>
     </div>
   );

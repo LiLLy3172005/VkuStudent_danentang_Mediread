@@ -292,6 +292,15 @@ export const api = {
     return res.json();
   },
 
+  async deleteDocument(documentId: string): Promise<any> {
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/api/v1/documents/${documentId}`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+    });
+    return res.json();
+  },
+
   async chatDoctorAI(message: string, documentId?: string): Promise<{ reply: string; suggested_questions?: string[] }> {
     const baseUrl = getApiBaseUrl();
     const res = await fetch(`${baseUrl}/api/v1/ai/chat`, {

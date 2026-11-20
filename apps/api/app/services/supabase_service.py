@@ -665,5 +665,39 @@ class SupabaseService:
 
         return {"id": target_str, "deleted": True}
 
+    async def delete_document(self, document_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        """Permanently deletes a document and all related lab results, medications, and explanations."""
+        doc_id_str = str(document_id)
+        user_str = str(user_id)
+
+        # In-memory mock cleanup
+        if doc_id_str in self._mock_documents:
+            del self._mock_documents[doc_id_str]
+        if user_str in self._mock_lab_results:
+            self._mock_lab_results[user_str] = [
+                r for r in self._mock_lab_results[user_str] if str(r.get("document_id")) != doc_id_str
+            ]
+        if user_str in self._mock_medications:
+            self._mock_medications[user_str] = [
+                m for m in self._mock_medications[user_str] if str(m.get("document_id")) != doc_id_str
+            ]
+
+        if self.is_connected() and self._client:
+            try:
+                # 1. Cascade delete child records
+                for tbl in ("lab_results", "medications", "explanations", "extractions"):
+                    try:
+                        self._client.table(tbl).delete().eq("document_id", doc_id_str).execute()
+                    except Exception:
+                        pass
+                # 2. Delete parent document
+                self._client.table("documents").delete().eq("id", doc_id_str).execute()
+                return True
+            except Exception as exc:
+                logger.error("Supabase delete_document error: %s", exc)
+                return False
+
+        return True
+
 
 db_service = SupabaseService()

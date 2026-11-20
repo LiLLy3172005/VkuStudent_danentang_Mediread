@@ -35,6 +35,8 @@ import {
   MessageCircle,
   Pill,
   Clock,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react-native';
 
 const parseRangeBounds = (text?: string | null): { low: number | null; high: number | null } => {
@@ -240,6 +242,51 @@ export default function DocumentDetailScreen() {
         },
       ]
     );
+  };
+
+  const [deleting, setDeleting] = useState<boolean>(false);
+
+  const handleDeleteDocument = () => {
+    const isLab = doc?.doc_type === 'lab_report';
+    const title = isLab ? 'Xóa phiếu xét nghiệm này?' : 'Xóa đơn thuốc này?';
+    const message = isLab
+      ? 'Nếu kết quả nhận diện OCR chưa chính xác hoặc ảnh bị mờ/nghiêng, bác/bạn có thể xóa phiếu này khỏi hồ sơ và chụp lại.'
+      : 'Nếu đơn thuốc quét chưa chuẩn hoặc chứa thông tin không chính xác, bác/bạn có thể xóa đơn thuốc này khỏi hồ sơ để quét lại.';
+
+    Alert.alert(title, message, [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xóa phiếu này',
+        style: 'destructive',
+        onPress: async () => {
+          if (!doc?.id) return;
+          setDeleting(true);
+          try {
+            await api.deleteDocument(doc.id);
+            Alert.alert(
+              'Đã xóa thành công',
+              isLab ? 'Phiếu xét nghiệm đã được xóa khỏi hồ sơ.' : 'Đơn thuốc đã được xóa khỏi hồ sơ.',
+              [
+                {
+                  text: 'Đồng ý',
+                  onPress: () => {
+                    if (router.canGoBack()) {
+                      router.back();
+                    } else {
+                      router.replace('/(tabs)/history' as any);
+                    }
+                  },
+                },
+              ]
+            );
+          } catch (e: any) {
+            Alert.alert('Không thể xóa', e.message || 'Có lỗi xảy ra khi xóa tài liệu.');
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
   };
 
   if (loading || !doc) {
@@ -708,6 +755,32 @@ export default function DocumentDetailScreen() {
           </View>
           <ChevronRight size={20} color="#FFFFFF" style={{ flexShrink: 0 }} />
         </TouchableOpacity>
+
+        {/* Delete Document Action Card */}
+        <View style={styles.deleteDocContainer}>
+          <TouchableOpacity
+            style={styles.deleteDocBtn}
+            onPress={handleDeleteDocument}
+            disabled={deleting}
+            activeOpacity={0.8}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color="#DC2626" />
+            ) : (
+              <>
+                <Trash2 size={18} color="#DC2626" style={{ flexShrink: 0 }} />
+                <Text style={styles.deleteDocBtnText}>
+                  {doc.doc_type === 'lab_report'
+                    ? 'Kết quả xét nghiệm không đúng? Xóa phiếu này'
+                    : 'Đơn thuốc quét không đúng? Xóa đơn thuốc này'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.deleteDocHint}>
+            💡 Bác/Bạn có thể xóa bỏ nếu kết quả quét hoặc OCR chưa chính xác để chụp quét lại.
+          </Text>
+        </View>
 
         {/* OCR Raw Text Drawer Toggle */}
         <TouchableOpacity
@@ -1403,5 +1476,41 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     flexShrink: 1,
+  },
+  deleteDocContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#FECACA',
+    gap: 8,
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  deleteDocBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.25)',
+    width: '100%',
+    minHeight: 48,
+  },
+  deleteDocBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#DC2626',
+    textAlign: 'center',
+  },
+  deleteDocHint: {
+    fontSize: 12.5,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 17,
   },
 });

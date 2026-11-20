@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { AppText as Text } from '../../components/common/AppText';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -18,7 +19,7 @@ import { usePreferences } from '../../contexts/PreferencesContext';
 import { DocumentSummary } from '../../types';
 import { HeaderBar } from '../../components/common/HeaderBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { Search, Calendar, ChevronRight } from 'lucide-react-native';
+import { Search, Calendar, ChevronRight, Trash2 } from 'lucide-react-native';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -78,6 +79,30 @@ export default function HistoryScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchDocuments();
+  };
+
+  const handleDeleteDoc = (docId: string, docType: string) => {
+    const isLab = docType === 'lab_report';
+    Alert.alert(
+      isLab ? 'Xóa phiếu xét nghiệm' : 'Xóa đơn thuốc',
+      `Bác/Bạn có chắc chắn muốn xóa ${isLab ? 'phiếu xét nghiệm' : 'đơn thuốc'} này khỏi hồ sơ không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa vĩnh viễn',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteDocument(docId);
+              setDocuments((prev) => prev.filter((d) => d.id !== docId));
+              setFilteredDocs((prev) => prev.filter((d) => d.id !== docId));
+            } catch (e: any) {
+              Alert.alert('Lỗi', e.message || 'Không thể xóa tài liệu.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -181,6 +206,17 @@ export default function HistoryScreen() {
                   flag={doc.status === 'confirmed' ? 'N' : null}
                   label={doc.status === 'confirmed' ? 'Đã duyệt' : 'Cần xem'}
                 />
+                <TouchableOpacity
+                  style={styles.deleteMiniBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleDeleteDoc(doc.id, doc.doc_type);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  <Trash2 size={16} color="#DC2626" />
+                </TouchableOpacity>
                 <ChevronRight size={16} color={Colors.textMuted} style={{ flexShrink: 0 }} />
               </View>
             </TouchableOpacity>
@@ -313,7 +349,15 @@ const styles = StyleSheet.create({
   rightAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
     flexShrink: 0,
+  },
+  deleteMiniBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

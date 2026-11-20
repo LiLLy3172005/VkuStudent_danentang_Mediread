@@ -4,9 +4,10 @@ Production LLM client with timeout, retry, and strict schema validation.
 """
 
 import os
+import re
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import httpx
 from pydantic import ValidationError
 
@@ -54,13 +55,13 @@ QUY TẮC BẮT BUỘC:
 6. Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích.
 """
 
-EXTRACT_PRESCRIPTION_PROMPT = """Bạn là trợ lý trích xuất đơn thuốc y khoa.
-Dưới đây là văn bản OCR từ ảnh đơn thuốc. Các dòng ngăn cách bằng dấu "|".
+EXTRACT_PRESCRIPTION_PROMPT = """Bạn là trợ lý trích xuất đơn thuốc y khoa chuyên nghiệp.
+Dưới đây là văn bản OCR từ ảnh đơn thuốc (hoặc toa thuốc). Các dòng ngăn cách bằng dấu "|".
 
 [VĂN BẢN OCR]:
 {raw_text}
 
-Nhiệm vụ: Trích xuất danh sách thuốc và trả về DUY NHẤT một JSON hợp lệ theo định dạng sau:
+Nhiệm vụ: Trích xuất danh sách các loại thuốc điều trị và trả về DUY NHẤT một JSON hợp lệ theo định dạng sau:
 {{
   "doc_type": "prescription",
   "facility_name": "tên bệnh viện hoặc cơ sở y tế",
@@ -69,23 +70,66 @@ Nhiệm vụ: Trích xuất danh sách thuốc và trả về DUY NHẤT một J
   "medicine_items": [
     {{
       "name": "tên thuốc đầy đủ bao gồm hàm lượng và biệt dược trong ngoặc",
-      "dosage": "liều lượng mỗi lần uống, vd: 1 viên, 1/2 viên, 5mg",
+      "dosage": "liều lượng mỗi lần uống, vd: 1 viên, 2 viên, 1 gói",
       "dosage_form": "viên, gói, chai, ống",
-      "times_per_day": 1,
-      "times": ["morning"],
-      "instructions": "hướng dẫn cách dùng cụ thể, vd: Cách dùng: Sáng 1/2 viên",
-      "duration_days": 20
+      "times_per_day": 2,
+      "times": ["morning", "afternoon"],
+      "instructions": "hướng dẫn cách dùng cụ thể, vd: Ngày uống 2 lần, mỗi lần 1 viên, trước ăn sáng, chiều",
+      "duration_days": 28
     }}
   ]
 }}
 
-QUY TẮC BẮT BUỘC:
-1. "name": Phục hồi đầy đủ dấu tiếng Việt chuẩn cho tên thuốc và thảo dược (ví dụ: 'Bình vôi 150mg + sen lá 180mg (Night queen)', 'Escitalopram oxalat 10mg (ESCIVEX 10 TABLETS)').
-2. "instructions": Trích xuất chính xác dòng 'Cách dùng: ...' tương ứng của từng thuốc. Tuyệt đối không để trống nếu đơn có ghi cách dùng.
-3. "times": Căn cứ vào cách dùng: nếu có 'Sáng' thêm "morning", 'Trưa' thêm "noon", 'Chiều' thêm "afternoon", 'Tối' thêm "evening".
-4. "duration_days": Tìm trong phần lời dặn (ví dụ: 'Toa: 20 ngày uống' -> đặt 20).
-5. Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích.
+QUY TẮC BẮT BUỘC ĐỂ TRÁNH LỖI NHẬN DIỆN:
+1. "name": Phục hồi chính xác tên dược chất hoặc biệt dược gốc và hàm lượng (ví dụ: 'RABEPRAZOL 20mg (RABICAD)', 'BARUDON', 'MOSAPRID 5mg (UVOMO)', 'SYNNEUPEP', 'MEBEVERIN 135mg (MEBSYN)', 'BISCAN-G'). Hãy loại bỏ các số thứ tự đầu dòng như '1 .', '2 .'.
+2. TUYỆT ĐỐI KHÔNG COI DÒNG HƯỚNG DẪN LÀ TÊN THUỐC:
+   - Các dòng chữ ghi cách uống thuốc như: 'Ngày uống 2 lần, mỗi lần 1 viên...', 'Uống sau ăn 2 giờ...', 'Ngay0ong 2...', 'Cách dùng: Sáng 1 viên...' TUYỆT ĐỐI KHÔNG ĐƯỢC TẠO THÀNH THUỐC MỚI.
+   - Đó là trường "instructions" của thuốc nằm ngay trước nó!
+   - Không được sinh ra các thuốc có tên như 'Ngay0ong 2...', 'Ngày uống...', 'Cách dùng...'.
+3. "dosage": Ghi số lượng mỗi lần uống, ví dụ: '1 viên', '2 viên', '1 gói'.
+4. "dosage_form": Xác định đúng dạng bào chế dựa trên đơn: 'viên', 'gói', 'chai', 'lọ'.
+5. "times": Nếu có 'sáng' thêm "morning", 'trưa' thêm "noon", 'chiều' thêm "afternoon", 'tối' thêm "evening".
+6. "duration_days": Nếu đơn ghi rõ số ngày uống (ví dụ 'Toa: 20 ngày' -> 20), hoặc tính từ tổng số lượng chia liều mỗi ngày (ví dụ: 56 viên / 2 viên/ngày = 28 ngày).
+7. Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích thêm.
 """
+
+
+def sanitize_medicine_items(items: List[MedicineItemDraft]) -> List[MedicineItemDraft]:
+    cleaned: List[MedicineItemDraft] = []
+    instruction_keywords = [
+        "ngày uống", "ngay uong", "ngayoong", "ngay0ong", "cách dùng", "cach dung",
+        "mỗi lần", "moi lan", "sau ăn", "sau an", "trước ăn", "truoc an",
+        "lời dặn", "loi dan", "tái khám", "tai kham", "chẩn đoán", "chan doan",
+        "uống sáng", "uong sang", "uống chiều", "uong chieu", "uống tối", "uong toi"
+    ]
+    for it in items:
+        name_str = (it.name or "").strip()
+        name_lower = name_str.lower()
+
+        # Check if name looks like an instruction line or prescription noise
+        is_instruction = any(kw in name_lower for kw in instruction_keywords) or \
+                         (re.search(r'\b(ngay\s*\d|uong\s*\d|vien|goi|chai|ong)\b', name_lower) is not None and len(name_lower) < 40 and not any(c.isupper() for c in name_str if len(name_str) > 5))
+
+        if len(name_str) < 3 or name_lower in ("toa thuốc", "đơn thuốc", "bác sĩ", "chẩn đoán", "họ tên", "năm sinh"):
+            continue
+
+        if is_instruction:
+            # Gộp vào instructions của thuốc trước đó nếu có
+            if cleaned:
+                prev = cleaned[-1]
+                if not prev.instructions or prev.instructions == "Theo chỉ định":
+                    prev.instructions = name_str
+                else:
+                    prev.instructions += f" • {name_str}"
+            continue
+
+        # Strip leading numbering like "1. ", "1 . ", "2/ "
+        clean_name = re.sub(r'^\s*\d+[\s\.\,\-\/\)]+\s*', '', name_str).strip()
+        if clean_name:
+            it.name = clean_name
+
+        cleaned.append(it)
+    return cleaned
 
 
 class ExtractionService:
@@ -149,6 +193,7 @@ class ExtractionService:
         prompt_template = EXTRACT_LAB_PROMPT if doc_type == "lab_report" else EXTRACT_PRESCRIPTION_PROMPT
         prompt = prompt_template.format(raw_text=raw_text)
 
+        result = None
         # First attempt
         raw_output = self._call_ollama(prompt)
         try:
@@ -156,43 +201,49 @@ class ExtractionService:
             # Ensure doc_type matches request if missing
             if "doc_type" not in parsed_json:
                 parsed_json["doc_type"] = doc_type
-            return ExtractionResult.model_validate(parsed_json)
+            result = ExtractionResult.model_validate(parsed_json)
         except (json.JSONDecodeError, ValidationError) as first_err:
             logger.warning("First LLM extraction attempt failed schema validation: %s. Retrying...", first_err)
 
-        # Retry with correction prompt
-        fix_prompt = f"""Chuỗi JSON sau đây bị lỗi cú pháp hoặc sai schema Pydantic:
+        if result is None:
+            # Retry with correction prompt
+            fix_prompt = f"""Chuỗi JSON sau đây bị lỗi cú pháp hoặc sai schema Pydantic:
 {raw_output[:1500]}
 
 Hãy sửa lại thành một JSON DUY NHẤT hoàn chỉnh, hợp lệ, không thừa thiếu dấu ngoặc, theo đúng format:
 {{"doc_type": "{doc_type}", "facility_name": null, "issued_date": null, "lab_items": [...], "medicine_items": [...]}}
 """
-        try:
-            retry_output = self._call_ollama(fix_prompt)
-            parsed_retry = json.loads(retry_output)
-            return ExtractionResult.model_validate(parsed_retry)
-        except Exception as retry_err:
-            logger.warning("LLM JSON repair failed: %s. Building safe partial extraction.", retry_err)
-            safe_labs = []
-            safe_meds = []
             try:
-                candidate = parsed_json if 'parsed_json' in locals() and isinstance(parsed_json, dict) else {}
-                for item in candidate.get("lab_items", []):
-                    try:
-                        safe_labs.append(LabItemDraft.model_validate(item))
-                    except Exception:
-                        pass
-                for item in candidate.get("medicine_items", []):
-                    try:
-                        safe_meds.append(MedicineItemDraft.model_validate(item))
-                    except Exception:
-                        pass
-                return ExtractionResult(
-                    doc_type=doc_type,
-                    facility_name=candidate.get("facility_name"),
-                    issued_date=candidate.get("issued_date"),
-                    lab_items=safe_labs,
-                    medicine_items=safe_meds,
-                )
-            except Exception:
-                return ExtractionResult(doc_type=doc_type)
+                retry_output = self._call_ollama(fix_prompt)
+                parsed_retry = json.loads(retry_output)
+                result = ExtractionResult.model_validate(parsed_retry)
+            except Exception as retry_err:
+                logger.warning("LLM JSON repair failed: %s. Building safe partial extraction.", retry_err)
+                safe_labs = []
+                safe_meds = []
+                try:
+                    candidate = parsed_json if 'parsed_json' in locals() and isinstance(parsed_json, dict) else {}
+                    for item in candidate.get("lab_items", []):
+                        try:
+                            safe_labs.append(LabItemDraft.model_validate(item))
+                        except Exception:
+                            pass
+                    for item in candidate.get("medicine_items", []):
+                        try:
+                            safe_meds.append(MedicineItemDraft.model_validate(item))
+                        except Exception:
+                            pass
+                    result = ExtractionResult(
+                        doc_type=doc_type,
+                        facility_name=candidate.get("facility_name"),
+                        issued_date=candidate.get("issued_date"),
+                        lab_items=safe_labs,
+                        medicine_items=safe_meds,
+                    )
+                except Exception:
+                    result = ExtractionResult(doc_type=doc_type)
+
+        if result and result.medicine_items:
+            result.medicine_items = sanitize_medicine_items(result.medicine_items)
+
+        return result

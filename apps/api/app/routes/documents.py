@@ -179,3 +179,15 @@ async def confirm_document_results(
 
     result = await db_service.confirm_extraction(document_id, current_user.id, req.confirmed_data)
     return {"message": "Dữ liệu đã được người dùng xác nhận thành công.", "document": result}
+
+
+@router.delete("/{document_id}")
+async def delete_document(
+    document_id: uuid.UUID,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Deletes a document and all associated results/explanations if OCR is incorrect or discarded."""
+    success = await db_service.delete_document(document_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="document_not_found_or_unauthorized")
+    return {"message": "Đã xóa tài liệu thành công.", "document_id": str(document_id)}
