@@ -235,8 +235,8 @@ export default function MedicationScreen() {
         <View style={styles.realtimeBanner}>
           <View style={styles.realtimeHeader}>
             <View style={styles.clockBadge}>
-              <Clock size={16} color="#0B6B73" />
-              <Text style={styles.clockText}>Hiện tại: {timeString}</Text>
+              <Clock size={15} color={Colors.primary} />
+              <Text style={styles.clockText} numberOfLines={1}>Hiện tại: {timeString}</Text>
             </View>
 
             <TouchableOpacity
@@ -257,27 +257,44 @@ export default function MedicationScreen() {
               }}
               activeOpacity={0.8}
             >
-              <BellRing size={16} color="#FFFFFF" />
-              <Text style={styles.testAlarmBtnText}>Thử Báo Thức</Text>
+              <BellRing size={14} color="#FFFFFF" />
+              <Text style={styles.testAlarmBtnText} numberOfLines={1}>Thử Báo Thức</Text>
             </TouchableOpacity>
           </View>
 
           <Text style={styles.realtimeSub}>
-            ⏰ Hệ thống đang theo dõi thời gian thực. Cữ cần uống tiếp theo:{' '}
-            <Text style={{ fontWeight: '900', color: Colors.primaryDark }}>{activeOrNextSlot}</Text>.
+            ⏰ Hệ thống theo dõi thời gian thực. Cữ kế tiếp:{' '}
+            <Text style={{ fontWeight: '800', color: Colors.primaryDark }}>{activeOrNextSlot}</Text>.
           </Text>
         </View>
 
         {/* Compliance Progress Card */}
         <View style={styles.progressCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.progressTitle}>Tiến Độ Uống Thuốc Hôm Nay</Text>
-            <Text style={styles.progressSub}>
-              {takenCount === totalDoses && totalDoses > 0
-                ? 'Tuyệt vời! Bác đã uống đủ tất cả các cữ thuốc hôm nay.'
-                : `Bác đã uống ${takenCount}/${totalDoses} cữ thuốc.`}
-            </Text>
+          <View style={styles.progressHeaderRow}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={styles.progressTitle} numberOfLines={1}>Tiến Độ Uống Thuốc Hôm Nay</Text>
+              <Text style={styles.progressSub} numberOfLines={2}>
+                {takenCount === totalDoses && totalDoses > 0
+                  ? 'Tuyệt vời! Bác đã uống đủ tất cả các cữ hôm nay.'
+                  : `Bác đã uống ${takenCount}/${totalDoses} cữ thuốc.`}
+              </Text>
+            </View>
+            <View style={styles.progressBadge}>
+              <Text style={styles.progressBadgeText}>
+                {totalDoses > 0 ? `${Math.round((takenCount / totalDoses) * 100)}%` : '0%'}
+              </Text>
+            </View>
           </View>
+          {totalDoses > 0 && (
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${Math.min(100, Math.round((takenCount / totalDoses) * 100))}%` },
+                ]}
+              />
+            </View>
+          )}
         </View>
 
         {/* Action Controls Row */}
@@ -287,13 +304,13 @@ export default function MedicationScreen() {
             onPress={() => setShowAddModal(true)}
             activeOpacity={0.85}
           >
-            <Plus size={20} color="#FFFFFF" />
-            <Text style={styles.addMedBtnText}>+ Thêm Thuốc Mới</Text>
+            <Plus size={18} color="#FFFFFF" />
+            <Text style={styles.addMedBtnText} numberOfLines={1}>Thêm thuốc mới</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.resetBtn} onPress={resetDayDoses} activeOpacity={0.7}>
-            <RotateCcw size={16} color={Colors.primary} />
-            <Text style={styles.resetBtnText}>Ngày mới</Text>
+            <RotateCcw size={15} color={Colors.primary} />
+            <Text style={styles.resetBtnText} numberOfLines={1}>Ngày mới</Text>
           </TouchableOpacity>
         </View>
 
@@ -309,11 +326,11 @@ export default function MedicationScreen() {
             <View style={styles.slotHeader}>
               <View style={styles.slotHeaderTop}>
                 <View style={[styles.slotIconBadge, { backgroundColor: '#FEF3C7' }]}>
-                  <Sun size={24} color="#D97706" />
+                  <Sun size={20} color="#D97706" />
                 </View>
                 <View style={styles.slotTitleCol}>
-                  <Text style={styles.slotTitle}>Cữ Sáng (07:00 - 08:30)</Text>
-                  <Text style={styles.slotSub}>Uống sau khi ăn sáng no</Text>
+                  <Text style={styles.slotTitle} numberOfLines={1}>Cữ Sáng (07:00 - 08:30)</Text>
+                  <Text style={styles.slotSub} numberOfLines={1}>Uống sau khi ăn sáng no</Text>
                 </View>
               </View>
 
@@ -342,11 +359,11 @@ export default function MedicationScreen() {
             <View style={styles.slotHeader}>
               <View style={styles.slotHeaderTop}>
                 <View style={[styles.slotIconBadge, { backgroundColor: '#FFEDD5' }]}>
-                  <Sunset size={24} color="#EA580C" />
+                  <Sunset size={20} color="#EA580C" />
                 </View>
                 <View style={styles.slotTitleCol}>
-                  <Text style={styles.slotTitle}>Cữ Trưa (11:30 - 13:00)</Text>
-                  <Text style={styles.slotSub}>Uống sau bữa cơm trưa</Text>
+                  <Text style={styles.slotTitle} numberOfLines={1}>Cữ Trưa (11:30 - 13:00)</Text>
+                  <Text style={styles.slotSub} numberOfLines={1}>Uống sau bữa cơm trưa</Text>
                 </View>
               </View>
 
@@ -374,12 +391,12 @@ export default function MedicationScreen() {
           >
             <View style={styles.slotHeader}>
               <View style={styles.slotHeaderTop}>
-                <View style={[styles.slotIconBadge, { backgroundColor: '#DCFCE7' }]}>
-                  <Moon size={24} color="#0F766E" />
+                <View style={[styles.slotIconBadge, { backgroundColor: Colors.primaryLight }]}>
+                  <Moon size={20} color={Colors.primary} />
                 </View>
                 <View style={styles.slotTitleCol}>
-                  <Text style={styles.slotTitle}>Cữ Tối (19:30 - 21:00)</Text>
-                  <Text style={styles.slotSub}>Uống sau bữa tối hoặc trước khi đi ngủ</Text>
+                  <Text style={styles.slotTitle} numberOfLines={1}>Cữ Tối (19:30 - 21:00)</Text>
+                  <Text style={styles.slotSub} numberOfLines={1}>Uống sau bữa tối hoặc trước khi đi ngủ</Text>
                 </View>
               </View>
 
@@ -448,7 +465,7 @@ export default function MedicationScreen() {
             <View style={styles.addModalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={styles.addModalIconWrap}>
-                  <Pill size={20} color="#15803D" />
+                  <Pill size={18} color={Colors.primary} />
                 </View>
                 <Text style={styles.addModalTitle}>Thêm Thuốc Thủ Công</Text>
               </View>
@@ -457,7 +474,7 @@ export default function MedicationScreen() {
                 style={styles.closeModalBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <X size={22} color={Colors.textMuted} />
+                <X size={20} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -509,14 +526,14 @@ export default function MedicationScreen() {
                     onPress={() => setNewMedSlot('morning')}
                     activeOpacity={0.8}
                   >
-                    <Sun size={20} color={newMedSlot === 'morning' ? '#D97706' : '#9CA3AF'} />
+                    <Sun size={18} color={newMedSlot === 'morning' ? '#D97706' : '#9CA3AF'} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.slotOptionTitle, newMedSlot === 'morning' && styles.slotOptionTitleActive]}>
                         Cữ Sáng (07:00 - 08:30)
                       </Text>
                       <Text style={styles.slotOptionDesc}>Uống sau khi ăn sáng no</Text>
                     </View>
-                    {newMedSlot === 'morning' && <CheckCircle2 size={20} color="#15803D" />}
+                    {newMedSlot === 'morning' && <CheckCircle2 size={18} color={Colors.primary} />}
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -524,14 +541,14 @@ export default function MedicationScreen() {
                     onPress={() => setNewMedSlot('noon')}
                     activeOpacity={0.8}
                   >
-                    <Sunset size={20} color={newMedSlot === 'noon' ? '#EA580C' : '#9CA3AF'} />
+                    <Sunset size={18} color={newMedSlot === 'noon' ? '#EA580C' : '#9CA3AF'} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.slotOptionTitle, newMedSlot === 'noon' && styles.slotOptionTitleActive]}>
                         Cữ Trưa (11:30 - 13:00)
                       </Text>
                       <Text style={styles.slotOptionDesc}>Uống sau bữa cơm trưa</Text>
                     </View>
-                    {newMedSlot === 'noon' && <CheckCircle2 size={20} color="#15803D" />}
+                    {newMedSlot === 'noon' && <CheckCircle2 size={18} color={Colors.primary} />}
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -539,14 +556,14 @@ export default function MedicationScreen() {
                     onPress={() => setNewMedSlot('evening')}
                     activeOpacity={0.8}
                   >
-                    <Moon size={20} color={newMedSlot === 'evening' ? '#0F766E' : '#9CA3AF'} />
+                    <Moon size={18} color={newMedSlot === 'evening' ? Colors.primary : '#9CA3AF'} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.slotOptionTitle, newMedSlot === 'evening' && styles.slotOptionTitleActive]}>
                         Cữ Tối (19:30 - 21:00)
                       </Text>
                       <Text style={styles.slotOptionDesc}>Uống sau ăn tối hoặc trước khi ngủ</Text>
                     </View>
-                    {newMedSlot === 'evening' && <CheckCircle2 size={20} color="#15803D" />}
+                    {newMedSlot === 'evening' && <CheckCircle2 size={18} color={Colors.primary} />}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -591,7 +608,7 @@ export default function MedicationScreen() {
                 onPress={handleAddMedication}
                 activeOpacity={0.85}
               >
-                <CheckCircle2 size={22} color="#FFFFFF" />
+                <CheckCircle2 size={20} color="#FFFFFF" />
                 <Text style={styles.addModalSubmitBtnText}>Lưu Vào Lịch Uống</Text>
               </TouchableOpacity>
 
@@ -614,7 +631,7 @@ export default function MedicationScreen() {
             {/* Header with Ringing Bell */}
             <View style={styles.alarmHeader}>
               <View style={styles.alarmBellCircle}>
-                <BellRing size={36} color="#FFFFFF" />
+                <BellRing size={30} color="#FFFFFF" />
               </View>
               <Text style={styles.alarmTitle}>ĐÃ ĐẾN GIỜ UỐNG THUỐC!</Text>
               <Text style={styles.alarmSubtitle}>
@@ -634,8 +651,8 @@ export default function MedicationScreen() {
                         <Text style={styles.alarmMedNumText}>{idx + 1}</Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.alarmMedName}>{dose.name}</Text>
-                        <Text style={styles.alarmMedInstruction}>
+                        <Text style={styles.alarmMedName} numberOfLines={1}>{dose.name}</Text>
+                        <Text style={styles.alarmMedInstruction} numberOfLines={1}>
                           {dose.dosage} • {dose.instructions}
                         </Text>
                       </View>
@@ -651,7 +668,7 @@ export default function MedicationScreen() {
                 onPress={() => markAllInSlotTaken(alarmSlot)}
                 activeOpacity={0.85}
               >
-                <CheckCircle2 size={24} color="#FFFFFF" />
+                <CheckCircle2 size={22} color="#FFFFFF" />
                 <Text style={styles.alarmConfirmBtnText}>TÔI ĐÃ UỐNG XONG TẤT CẢ</Text>
               </TouchableOpacity>
 
@@ -669,7 +686,7 @@ export default function MedicationScreen() {
                   }}
                   activeOpacity={0.8}
                 >
-                  <Volume2 size={18} color={Colors.primary} />
+                  <Volume2 size={17} color={Colors.primary} />
                   <Text style={styles.alarmVoiceBtnText}>Đọc Lại</Text>
                 </TouchableOpacity>
 
@@ -678,7 +695,7 @@ export default function MedicationScreen() {
                   onPress={() => setShowAlarmModal(false)}
                   activeOpacity={0.8}
                 >
-                  <Clock size={18} color={Colors.textMuted} />
+                  <Clock size={17} color={Colors.textMuted} />
                   <Text style={styles.alarmSnoozeBtnText}>Nhắc sau</Text>
                 </TouchableOpacity>
               </View>
@@ -705,7 +722,7 @@ function renderDoseRow(
         onPress={() => onToggle(dose.id)}
         activeOpacity={0.7}
       >
-        {dose.taken && <Check size={18} color="#FFFFFF" />}
+        {dose.taken && <Check size={16} color="#FFFFFF" />}
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -713,8 +730,8 @@ function renderDoseRow(
         onPress={() => onToggle(dose.id)}
         activeOpacity={0.7}
       >
-        <Text style={[styles.pillName, dose.taken && styles.textMuted]}>{dose.name}</Text>
-        <Text style={styles.doseInfo}>
+        <Text style={[styles.pillName, dose.taken && styles.textMuted]} numberOfLines={1}>{dose.name}</Text>
+        <Text style={styles.doseInfo} numberOfLines={1}>
           {dose.dosage} • {dose.instructions}
         </Text>
       </TouchableOpacity>
@@ -746,12 +763,12 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 40,
-    gap: 16,
+    gap: 14,
   },
   realtimeBanner: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: Colors.border,
     gap: 8,
@@ -760,67 +777,110 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
+    overflow: 'hidden',
   },
   realtimeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   clockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#E6F4F2',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    gap: 5,
+    backgroundColor: Colors.primaryPale,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    flexShrink: 1,
   },
   clockText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#073F46',
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primaryDark,
   },
   testAlarmBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#15803D',
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    shadowColor: '#15803D',
+    gap: 5,
+    backgroundColor: Colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 10,
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 2,
+    flexShrink: 0,
   },
   testAlarmBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 12.5,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   realtimeSub: {
-    fontSize: 14.5,
+    fontSize: 13,
     color: Colors.textMuted,
-    lineHeight: 21,
+    lineHeight: 18,
     marginTop: 2,
   },
   progressCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 18,
+    padding: 15,
     borderWidth: 1.5,
     borderColor: Colors.border,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  progressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   progressTitle: {
-    fontSize: 19,
-    fontWeight: '900',
+    fontSize: 15.5,
+    fontWeight: '800',
     color: Colors.primaryDark,
   },
   progressSub: {
-    fontSize: 15,
+    fontSize: 12.5,
     color: Colors.textMuted,
-    marginTop: 4,
+    marginTop: 3,
+    lineHeight: 17,
+  },
+  progressBadge: {
+    backgroundColor: Colors.primaryPale,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  progressBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: Colors.primaryPale,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: 3,
   },
   actionRow: {
     flexDirection: 'row',
@@ -832,13 +892,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#15803D',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    minHeight: 48,
-    shadowColor: '#15803D',
+    gap: 6,
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    minHeight: 46,
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -849,67 +909,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#15803D',
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 14,
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
   addMedBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   resetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#E6F4F2',
-    paddingVertical: 12,
+    backgroundColor: Colors.surface,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
-    minHeight: 48,
+    minHeight: 46,
     flexShrink: 0,
   },
   resetBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: Colors.primaryDark,
   },
   timeSlotBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 18,
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    gap: 14,
+    gap: 12,
+    overflow: 'hidden',
   },
   slotBoxDueNow: {
     borderColor: '#C2410C',
     backgroundColor: '#FFFAF5',
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   slotBoxOverdue: {
     borderColor: '#DC2626',
     backgroundColor: '#FEF2F2',
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   slotHeader: {
-    gap: 10,
-    paddingBottom: 6,
+    gap: 8,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   slotHeaderTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   slotIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
@@ -919,53 +980,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   slotTitle: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 15.5,
+    fontWeight: '800',
     color: Colors.primaryDark,
-    lineHeight: 24,
+    lineHeight: 20,
   },
   slotSub: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     color: Colors.textMuted,
     marginTop: 2,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   slotHeaderBottom: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   statusTag: {
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 8,
     borderWidth: 1,
     alignSelf: 'flex-start',
-    maxWidth: '100%',
   },
   statusTagText: {
-    fontSize: 12.5,
-    fontWeight: '900',
+    fontSize: 11.5,
+    fontWeight: '800',
   },
   doseCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 14,
-    gap: 12,
+    borderRadius: 14,
+    padding: 11,
+    gap: 10,
     borderWidth: 1,
     borderColor: Colors.border,
-    minHeight: 64,
+    minHeight: 54,
   },
   doseCardTaken: {
     backgroundColor: '#F9FAFB',
     opacity: 0.75,
   },
   checkbox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2.5,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
     borderColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -973,12 +1033,12 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   checkboxTaken: {
-    backgroundColor: '#15803D',
-    borderColor: '#15803D',
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   pillName: {
-    fontSize: 17.5,
-    fontWeight: '800',
+    fontSize: 14.5,
+    fontWeight: '700',
     color: Colors.textMain,
   },
   textMuted: {
@@ -986,67 +1046,70 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   doseInfo: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.textMuted,
-    marginTop: 3,
+    marginTop: 2,
+    lineHeight: 16,
   },
   deleteDoseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   emptyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 24,
+    borderRadius: 18,
+    padding: 20,
     borderWidth: 1.5,
     borderColor: Colors.border,
     alignItems: 'center',
-    gap: 10,
-    marginVertical: 10,
+    gap: 8,
+    marginVertical: 6,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: Colors.textMain,
   },
   emptyDesc: {
-    fontSize: 15,
+    fontSize: 13,
     color: Colors.textMuted,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 18,
   },
   restoreBtn: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
   restoreBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+    color: Colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '700',
   },
   hintCard: {
     backgroundColor: '#E0F2FE',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#BAE6FD',
     gap: 6,
   },
   hintTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0369A1',
   },
   hintText: {
-    fontSize: 14,
+    fontSize: 12.5,
     color: '#0C4A6E',
-    lineHeight: 20,
+    lineHeight: 18,
   },
 
   // Manual Add Modal Styles
@@ -1057,9 +1120,9 @@ const styles = StyleSheet.create({
   },
   addModalContainer: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 18,
     maxHeight: '90%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
@@ -1071,139 +1134,139 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   addModalIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#DCFCE7',
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: Colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   addModalTitle: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
     color: Colors.primaryDark,
   },
   closeModalBtn: {
     padding: 4,
   },
   formGroup: {
-    gap: 6,
+    gap: 5,
   },
   formLabel: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: Colors.primaryDark,
   },
   formInput: {
     borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 15,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
     color: Colors.textMain,
     backgroundColor: '#F8FAFA',
   },
   quickChipsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 6,
+    gap: 7,
+    marginTop: 5,
     flexWrap: 'wrap',
   },
   quickChipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 6,
+    gap: 7,
+    marginTop: 5,
   },
   quickChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   quickChipActive: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#15803D',
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
   },
   quickChipText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: Colors.textMuted,
   },
   quickChipTextActive: {
-    color: '#15803D',
-    fontWeight: '800',
+    color: Colors.primaryDark,
+    fontWeight: '700',
   },
   slotPickerCol: {
-    gap: 8,
+    gap: 7,
   },
   slotOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 14,
+    gap: 10,
+    padding: 10,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: Colors.border,
     backgroundColor: '#F8FAFA',
   },
   slotOptionActive: {
-    borderColor: '#15803D',
-    backgroundColor: '#F0FDF4',
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryPale,
   },
   slotOptionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: Colors.textMain,
   },
   slotOptionTitleActive: {
-    color: '#15803D',
+    color: Colors.primaryDark,
   },
   slotOptionDesc: {
-    fontSize: 12.5,
+    fontSize: 11.5,
     color: Colors.textMuted,
-    marginTop: 2,
+    marginTop: 1,
   },
   addModalActions: {
-    gap: 10,
-    marginTop: 14,
-    paddingBottom: 10,
+    gap: 8,
+    marginTop: 12,
+    paddingBottom: 8,
   },
   addModalSubmitBtn: {
-    backgroundColor: '#15803D',
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    minHeight: 52,
-    borderRadius: 16,
-    shadowColor: '#15803D',
-    shadowOffset: { width: 0, height: 4 },
+    gap: 7,
+    minHeight: 46,
+    borderRadius: 14,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
-    shadowRadius: 6,
+    shadowRadius: 5,
     elevation: 3,
   },
   addModalSubmitBtnText: {
-    fontSize: 16.5,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   addModalCancelBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   addModalCancelBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13.5,
+    fontWeight: '600',
     color: Colors.textMuted,
   },
 
@@ -1217,45 +1280,45 @@ const styles = StyleSheet.create({
   },
   alarmModalBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 24,
+    borderRadius: 24,
+    padding: 20,
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 360,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
     elevation: 8,
   },
   alarmHeader: {
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   alarmBellCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#C2410C',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
-    shadowColor: '#C2410C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    marginBottom: 2,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
     elevation: 4,
   },
   alarmTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '900',
-    color: '#C2410C',
+    color: Colors.primaryDark,
     textAlign: 'center',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   alarmSubtitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13.5,
+    fontWeight: '600',
     color: Colors.textMuted,
     textAlign: 'center',
   },
@@ -1264,51 +1327,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     backgroundColor: '#F8FAFA',
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   alarmMedNum: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#E6F4F2',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.primaryPale,
     justifyContent: 'center',
     alignItems: 'center',
   },
   alarmMedNumText: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '800',
     color: Colors.primaryDark,
   },
   alarmMedName: {
-    fontSize: 16.5,
-    fontWeight: '800',
+    fontSize: 14.5,
+    fontWeight: '700',
     color: Colors.primaryDark,
   },
   alarmMedInstruction: {
-    fontSize: 13.5,
+    fontSize: 12,
     color: Colors.textMuted,
     marginTop: 1,
   },
   alarmConfirmBtn: {
-    backgroundColor: '#15803D',
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    minHeight: 54,
-    borderRadius: 16,
-    shadowColor: '#15803D',
-    shadowOffset: { width: 0, height: 4 },
+    gap: 7,
+    minHeight: 48,
+    borderRadius: 14,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
-    shadowRadius: 6,
+    shadowRadius: 5,
     elevation: 3,
   },
   alarmConfirmBtnText: {
-    fontSize: 17,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   alarmVoiceBtn: {
@@ -1316,16 +1379,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#E6F4F2',
-    borderRadius: 14,
-    minHeight: 46,
+    gap: 5,
+    backgroundColor: Colors.primaryPale,
+    borderRadius: 12,
+    minHeight: 42,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   alarmVoiceBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: Colors.primaryDark,
   },
   alarmSnoozeBtn: {
@@ -1333,16 +1396,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: '#F3F4F6',
-    borderRadius: 14,
-    minHeight: 46,
+    borderRadius: 12,
+    minHeight: 42,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   alarmSnoozeBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     color: Colors.textMuted,
   },
 });
