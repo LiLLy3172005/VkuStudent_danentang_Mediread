@@ -86,8 +86,10 @@ export interface CareLink {
   id: string;
   patient_id: string;
   patient_name?: string;
+  patient_phone?: string;
   caregiver_id: string;
   caregiver_name?: string;
+  caregiver_phone?: string;
   status: 'pending' | 'accepted' | 'revoked';
   created_at: string;
 }

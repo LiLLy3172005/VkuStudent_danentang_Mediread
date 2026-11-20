@@ -350,6 +350,13 @@ async def get_me(current_user: AuthenticatedUser = Depends(get_current_user)):
         except Exception as exc:
             logger.warning("Failed to fetch full profile: %s", exc)
 
+        try:
+            cred = db_service._client.table("user_credentials").select("phone").eq("user_id", str(current_user.id)).limit(1).execute()
+            if cred.data and cred.data[0].get("phone"):
+                profile_data["phone"] = cred.data[0]["phone"]
+        except Exception as exc:
+            logger.warning("Failed to fetch phone credential: %s", exc)
+
     return profile_data
 
 

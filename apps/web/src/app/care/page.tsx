@@ -425,8 +425,13 @@ export default function CarePage() {
                           <strong className="text-base text-[#073F46] block">
                             {link.caregiver_name || 'Người thân chăm sóc'}
                           </strong>
+                          {link.caregiver_phone && (
+                            <span className="text-xs text-slate-500 font-medium block">
+                              📞 SĐT: {link.caregiver_phone}
+                            </span>
+                          )}
                           <span
-                            className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                            className={`text-xs px-2 py-0.5 rounded-full font-bold inline-block mt-0.5 ${
                               isRevoked
                                 ? 'text-gray-500 bg-gray-100'
                                 : 'text-emerald-700 bg-emerald-50'
@@ -588,9 +593,16 @@ export default function CarePage() {
                               {isRevoked ? 'Đã ngắt' : 'Đang liên kết'}
                             </span>
                           </div>
-                          <span className="text-xs text-[#5B6B77]">
-                            Mã bệnh nhân: {link.patient_id?.slice(0, 8)}...
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-[#5B6B77]">
+                              Mã bệnh nhân: {link.patient_id?.slice(0, 8)}...
+                            </span>
+                            {link.patient_phone && (
+                              <span className="text-xs text-[#0B6B73] font-medium">
+                                📞 SĐT: {link.patient_phone}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

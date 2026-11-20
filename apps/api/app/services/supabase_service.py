@@ -435,30 +435,33 @@ class SupabaseService:
                 links = res.data or []
                 if links:
                     for l in links:
+                        # 1. Fetch Patient Info from profiles and user_credentials
                         try:
-                            p_res = self._client.table("profiles").select("full_name, phone, role").eq("id", l["patient_id"]).execute()
+                            p_res = self._client.table("profiles").select("full_name, role").eq("id", l["patient_id"]).execute()
                             if p_res.data:
                                 l["patient_name"] = p_res.data[0].get("full_name")
-                                l["patient_phone"] = p_res.data[0].get("phone")
-                            if not l.get("patient_phone"):
-                                try:
-                                    cred_p = self._client.table("user_credentials").select("phone").eq("user_id", l["patient_id"]).execute()
-                                    if cred_p.data:
-                                        l["patient_phone"] = cred_p.data[0].get("phone")
-                                except Exception:
-                                    pass
+                        except Exception as p_err:
+                            logger.warning("Error fetching patient name for %s: %s", l.get("patient_id"), p_err)
 
-                            c_res = self._client.table("profiles").select("full_name, phone, role").eq("id", l["caregiver_id"]).execute()
+                        try:
+                            cred_p = self._client.table("user_credentials").select("phone").eq("user_id", l["patient_id"]).execute()
+                            if cred_p.data:
+                                l["patient_phone"] = cred_p.data[0].get("phone")
+                        except Exception:
+                            pass
+
+                        # 2. Fetch Caregiver Info from profiles and user_credentials
+                        try:
+                            c_res = self._client.table("profiles").select("full_name, role").eq("id", l["caregiver_id"]).execute()
                             if c_res.data:
                                 l["caregiver_name"] = c_res.data[0].get("full_name")
-                                l["caregiver_phone"] = c_res.data[0].get("phone")
-                            if not l.get("caregiver_phone"):
-                                try:
-                                    cred_c = self._client.table("user_credentials").select("phone").eq("user_id", l["caregiver_id"]).execute()
-                                    if cred_c.data:
-                                        l["caregiver_phone"] = cred_c.data[0].get("phone")
-                                except Exception:
-                                    pass
+                        except Exception as c_err:
+                            logger.warning("Error fetching caregiver name for %s: %s", l.get("caregiver_id"), c_err)
+
+                        try:
+                            cred_c = self._client.table("user_credentials").select("phone").eq("user_id", l["caregiver_id"]).execute()
+                            if cred_c.data:
+                                l["caregiver_phone"] = cred_c.data[0].get("phone")
                         except Exception:
                             pass
                     return links
@@ -502,11 +505,17 @@ class SupabaseService:
                     if res.data:
                         patient_profile = res.data[0]
 
-                # 3. Phone match
+                # 3. Phone match in user_credentials
                 if not patient_profile:
-                    res = self._client.table("profiles").select("*").eq("phone", clean_code).execute()
-                    if res.data:
-                        patient_profile = res.data[0]
+                    try:
+                        cred = self._client.table("user_credentials").select("user_id").eq("phone", clean_code).execute()
+                        if cred.data:
+                            p_id = cred.data[0]["user_id"]
+                            p_res = self._client.table("profiles").select("*").eq("id", p_id).execute()
+                            if p_res.data:
+                                patient_profile = p_res.data[0]
+                    except Exception:
+                        pass
             except Exception as exc:
                 logger.error("Supabase profile lookup failed: %s", exc)
 
@@ -525,12 +534,28 @@ class SupabaseService:
         if str(patient_id) == caregiver_str:
             raise ValueError("Không thể tự kết nối với chính tài khoản của bạn.")
 
+        # Also lookup caregiver's own profile name
+        caregiver_name = None
+        caregiver_phone = None
+        if self.is_connected() and self._client:
+            try:
+                cg_res = self._client.table("profiles").select("full_name").eq("id", caregiver_str).execute()
+                if cg_res.data:
+                    caregiver_name = cg_res.data[0].get("full_name")
+                cred_cg = self._client.table("user_credentials").select("phone").eq("user_id", caregiver_str).execute()
+                if cred_cg.data:
+                    caregiver_phone = cred_cg.data[0].get("phone")
+            except Exception:
+                pass
+
         link_id = uuid.uuid4()
         link_data = {
             "id": str(link_id),
             "patient_id": str(patient_id),
             "patient_name": patient_profile.get("full_name", "Người bệnh"),
             "caregiver_id": caregiver_str,
+            "caregiver_name": caregiver_name,
+            "caregiver_phone": caregiver_phone,
             "status": "accepted",
             "created_at": datetime.utcnow().isoformat(),
         }
@@ -561,17 +586,41 @@ class SupabaseService:
     async def request_care_link(self, caregiver_id: uuid.UUID, patient_id: uuid.UUID) -> Dict[str, Any]:
         link_id = uuid.uuid4()
         link = {
-            "id": link_id,
-            "patient_id": patient_id,
-            "caregiver_id": caregiver_id,
+            "id": str(link_id),
+            "patient_id": str(patient_id),
+            "caregiver_id": str(caregiver_id),
             "status": "pending",
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.utcnow().isoformat(),
         }
+        if self.is_connected() and self._client:
+            try:
+                self._client.table("care_links").insert({
+                    "id": str(link_id),
+                    "patient_id": str(patient_id),
+                    "caregiver_id": str(caregiver_id),
+                    "status": "pending",
+                }).execute()
+            except Exception as exc:
+                logger.error("Supabase insert pending care_link failed: %s", exc)
         self._mock_care_links[str(link_id)] = link
         return link
 
     async def accept_care_link(self, patient_id: uuid.UUID, link_id: uuid.UUID) -> Dict[str, Any]:
         link_str = str(link_id)
+        if self.is_connected() and self._client:
+            try:
+                res = self._client.table("care_links").select("*").eq("id", link_str).execute()
+                if res.data:
+                    row = res.data[0]
+                    if str(row.get("patient_id")) != str(patient_id):
+                        raise ValueError("unauthorized_only_patient_can_accept")
+                    self._client.table("care_links").update({"status": "accepted"}).eq("id", link_str).execute()
+                    row["status"] = "accepted"
+                    return row
+            except ValueError:
+                raise
+            except Exception as exc:
+                logger.error("Supabase accept care_link failed: %s", exc)
         if link_str in self._mock_care_links:
             link = self._mock_care_links[link_str]
             if str(link["patient_id"]) != str(patient_id):
