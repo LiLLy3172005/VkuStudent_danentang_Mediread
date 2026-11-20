@@ -16,6 +16,8 @@ class Settings(BaseSettings):
         env_file=(
             str(ROOT_DIR / ".env"),
             str(ROOT_DIR / ".env.local"),
+            str(Path(__file__).resolve().parent.parent / ".env"),
+            str(Path(__file__).resolve().parent.parent / ".env.local"),
             ".env",
             ".env.local",
         ),

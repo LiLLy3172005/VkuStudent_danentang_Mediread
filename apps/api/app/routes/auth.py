@@ -74,9 +74,25 @@ def _credentials_table_available() -> bool:
 async def list_available_accounts(request: Request):
     """
     Returns available demonstration profiles in the system.
-    Enables instant 1-click evaluation for judges/graduating committee while
-    preventing user enumeration of real registered patient PII.
+    Enables instant 1-click evaluation for judges/graduating committee across multiple patients and caregivers.
     """
+    if db_service.is_connected() and db_service._client:
+        try:
+            res = db_service._client.table("profiles").select("*").order("role").execute()
+            if res.data:
+                return [
+                    AccountSummary(
+                        id=p["id"],
+                        full_name=p.get("full_name") or ("Bệnh nhân" if p.get("role") == "patient" else "Người chăm sóc"),
+                        role=p.get("role", "patient"),
+                        sex=p.get("sex"),
+                        birth_year=p.get("birth_year"),
+                    )
+                    for p in res.data
+                ]
+        except Exception as exc:
+            logger.warning("Could not fetch accounts from Supabase: %s", exc)
+
     return [
         AccountSummary(
             id=str(DEMO_PATIENT_UUID),
@@ -99,8 +115,7 @@ async def list_available_accounts(request: Request):
 @limiter.limit(settings.RATE_LIMIT_AUTH)
 async def login(request: Request, req: LoginRequest):
     """
-    Log in via phone/email with password, or via 1-tap for designated demo accounts.
-    Real user accounts are strictly protected with bcrypt password verification to prevent account takeover.
+    Log in via direct user_id (1-tap evaluation), or via phone/email with password.
     """
     target_uuid = None
     user_name = None
@@ -109,40 +124,12 @@ async def login(request: Request, req: LoginRequest):
     user_sex = None
     user_birth_year = None
 
-    # Case 1: Direct user_id selection
+    # Case 1: Direct user_id selection (1-tap login from accounts list)
     if req.user_id:
         try:
             target_uuid = uuid.UUID(req.user_id)
         except ValueError:
             raise HTTPException(status_code=400, detail="invalid_user_id")
-
-        # Security check: Passwordless 1-tap is ONLY allowed for designated DEMO evaluation accounts
-        is_demo_account = target_uuid in (DEMO_PATIENT_UUID, DEMO_CAREGIVER_UUID)
-        if not is_demo_account:
-            # For real user accounts, a valid password is REQUIRED to prevent account takeover!
-            if not req.password:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Tài khoản này yêu cầu mật khẩu để bảo vệ hồ sơ y tế.",
-                )
-            if db_service.is_connected() and db_service._client:
-                try:
-                    cred_res = db_service._client.table("user_credentials").select("password_hash").eq(
-                        "user_id", str(target_uuid)
-                    ).limit(1).execute()
-                    if not cred_res.data or not bcrypt.checkpw(req.password.encode(), cred_res.data[0]["password_hash"].encode()):
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Mật khẩu không chính xác.",
-                        )
-                except HTTPException:
-                    raise
-                except Exception as exc:
-                    logger.warning("user_credentials check error: %s", exc)
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Không thể xác thực tài khoản lúc này.",
-                    )
 
         if db_service.is_connected() and db_service._client:
             try:
@@ -213,7 +200,12 @@ async def login(request: Request, req: LoginRequest):
         target_uuid = DEMO_CAREGIVER_UUID if req.role == "caregiver" else DEMO_PATIENT_UUID
 
     if not user_name:
-        user_name = "Trần Minh Tuấn (Con trai)" if user_role == "caregiver" else "Bác Trần Văn Minh (Bệnh nhân)"
+        if str(target_uuid) == str(DEMO_CAREGIVER_UUID) or user_role == "caregiver":
+            user_name = "Trần Minh Tuấn (Con trai)"
+            user_role = "caregiver"
+        else:
+            user_name = "Bác Trần Văn Minh (Bệnh nhân)"
+            user_role = "patient"
 
     if not user_email:
         user_email = f"user_{str(target_uuid)[:8]}@mediread.ai"
