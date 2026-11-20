@@ -184,10 +184,10 @@ class TestCacheAndSchemaContracts(unittest.TestCase):
         k3 = make_cache_key("Glucose", "5.1", "mmol/L", "3.9-6.4", "normal", "Context B", "qwen2.5:7b")
         self.assertNotEqual(k1, k3)
 
-    def test_pydantic_schema_extra_fields_forbidden(self):
-        with self.assertRaises(Exception):
-            # extra="forbid" rejects unexpected hallucinated fields
-            LabItemDraft(name="Glucose", value="5.1", unit="mmol/L", reference_range="3.9-6.4", flag="normal", extra_key="invalid")
+    def test_pydantic_schema_extra_fields_ignored(self):
+        # extra="ignore" safely tolerates unexpected fields without crashing
+        draft = LabItemDraft(name="Glucose", value="5.1", unit="mmol/L", reference_range="3.9-6.4", flag="normal", extra_key="ignored")
+        self.assertEqual(draft.name, "Glucose")
 
 
 if __name__ == "__main__":

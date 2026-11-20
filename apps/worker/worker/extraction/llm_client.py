@@ -45,7 +45,7 @@ QUY TẮC BẮT BUỘC:
 1. "value" chỉ là SỐ ĐO kết quả của bệnh nhân. Tuyệt đối không chép khoảng tham chiếu vào "value".
 2. Nếu dòng chỉ có tên và khoảng chuẩn mà chưa có số đo, để "value" là "".
 3. "flag": Nếu có dấu H, *, hoặc chữ 'Cao', đặt "high". Nếu có dấu L hoặc chữ 'Thấp', đặt "low". Nếu có chữ 'Bình thường' hoặc trong ngưỡng rõ ràng, đặt "normal". Nếu không chắc chắn, đặt "unknown".
-4. "name": Phục hồi dấu tiếng Việt chuẩn và chính xác cho tên xét nghiệm (ví dụ: nếu OCR quét 'So luong bach cau' thì ghi 'Số lượng bạch cầu (WBC)', 'So luong hong cau' -> 'Số lượng hồng cầu (RBC)', 'So luong tieu cau' -> 'Số lượng tiểu cầu (PLT)', 'Dinh luong Glucose' -> 'Đường huyết (Glucose)', 'Dinh luong Albumin' -> 'Định lượng Albumin', 'Protein toan phan' -> 'Protein toàn phần'). Với các từ viết tắt (WBC, RBC, PLT, TSH, FT3, FT4,...) hãy mở rộng thành tên tiếng Việt dễ hiểu.
+4. "name": Phục hồi dấu tiếng Việt chuẩn và chính xác cho tên xét nghiệm (ví dụ: 'WBC' -> 'Số lượng bạch cầu (WBC)', 'RBC' -> 'Số lượng hồng cầu (RBC)', 'PLT' -> 'Số lượng tiểu cầu (PLT)', 'HGB' -> 'Huyết sắc tố (HGB)', 'HCT' -> 'Dung tích hồng cầu (HCT)', 'MCV' -> 'Thể tích trung bình hồng cầu (MCV)', 'MCH' -> 'Lượng huyết sắc tố trung bình hồng cầu (MCH)', 'MCHC' -> 'Nồng độ huyết sắc tố trung bình hồng cầu (MCHC)', 'RDW' -> 'Độ phân bố kích thước hồng cầu (RDW)', 'MPV' -> 'Thể tích trung bình tiểu cầu (MPV)', 'Glucose' -> 'Đường huyết (Glucose)', 'Albumin' -> 'Định lượng Albumin', 'Protein' -> 'Protein toàn phần'). Tuyệt đối giữ đúng mã viết tắt gốc trong ngoặc đơn, không nhầm lẫn giữa HGB, MCH và MCHC.
 5. Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích.
 """
 
@@ -124,8 +124,8 @@ class ExtractionService:
             "keep_alive": "30m",
             "options": {
                 "temperature": 0.0,
-                "num_ctx": 2048,
-                "num_predict": 896,
+                "num_ctx": 4096,
+                "num_predict": 3072,
             },
         }
         with httpx.Client(timeout=self.timeout) as client:
