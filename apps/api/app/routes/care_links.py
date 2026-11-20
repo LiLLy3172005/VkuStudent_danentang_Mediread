@@ -103,9 +103,29 @@ async def revoke_connection(
     try:
         revoked = await db_service.revoke_care_link(current_user.id, link_id)
         return {
-            "message": "Đã hủy liên kết người chăm sóc thành công.",
+            "message": "Đã hủy liên kết thành công.",
             "link_id": link_id,
             "status": "revoked",
+        }
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        )
+
+
+@router.delete("/{link_id}")
+async def delete_connection(
+    link_id: uuid.UUID,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Patient or Caregiver can permanently delete the care link."""
+    try:
+        result = await db_service.delete_care_link(current_user.id, link_id)
+        return {
+            "message": "Đã xóa liên kết người thân thành công.",
+            "link_id": link_id,
+            "deleted": True,
         }
     except ValueError as exc:
         raise HTTPException(

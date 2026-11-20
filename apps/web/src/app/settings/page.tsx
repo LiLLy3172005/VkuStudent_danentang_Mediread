@@ -107,32 +107,44 @@ export default function SettingsPage() {
           </Link>
         </div>
 
-        <div className="space-y-3 divide-y divide-gray-100 text-base">
-          <div className="flex justify-between py-2">
-            <span className="text-[#5B6B77]">Họ và tên:</span>
-            <span className="font-extrabold text-[#073F46]">
-              {user?.full_name || 'Bác Trần Văn Minh'}
-            </span>
+        {user ? (
+          <div className="space-y-3 divide-y divide-gray-100 text-base">
+            <div className="flex justify-between py-2">
+              <span className="text-[#5B6B77]">Họ và tên:</span>
+              <span className="font-extrabold text-[#073F46]">
+                {user.full_name}
+              </span>
+            </div>
+            <div className="flex justify-between py-2">
+              <span className="text-[#5B6B77]">Năm sinh:</span>
+              <span className="font-bold">
+                {user.birth_year ? `${user.birth_year} (${new Date().getFullYear() - user.birth_year} tuổi)` : 'Chưa cập nhật'}
+              </span>
+            </div>
+            <div className="flex justify-between py-2">
+              <span className="text-[#5B6B77]">Giới tính:</span>
+              <span className="font-bold uppercase">
+                {user.sex === 'nu' ? 'Nữ' : user.sex === 'nam' ? 'Nam' : user.sex || 'Chưa cập nhật'}
+              </span>
+            </div>
+            <div className="flex justify-between py-2">
+              <span className="text-[#5B6B77]">Vai trò tài khoản:</span>
+              <span className="font-bold text-[#0B6B73]">
+                {user.role === 'caregiver' ? 'Người thân chăm sóc' : 'Người bệnh (Chính chủ)'}
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between py-2">
-            <span className="text-[#5B6B77]">Năm sinh:</span>
-            <span className="font-bold">
-              {user?.birth_year ? `${user.birth_year} (${new Date().getFullYear() - user.birth_year} tuổi)` : '1954 (72 tuổi)'}
-            </span>
+        ) : (
+          <div className="p-4 bg-gray-50 rounded-2xl text-center text-sm text-gray-500 font-semibold space-y-2">
+            <p>Bác/Bạn chưa đăng nhập tài khoản.</p>
+            <Link
+              href="/login"
+              className="inline-block bg-[#0B6B73] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#073F46]"
+            >
+              Đăng nhập / Chọn tài khoản ngay
+            </Link>
           </div>
-          <div className="flex justify-between py-2">
-            <span className="text-[#5B6B77]">Giới tính:</span>
-            <span className="font-bold uppercase">
-              {user?.sex || 'Nam'}
-            </span>
-          </div>
-          <div className="flex justify-between py-2">
-            <span className="text-[#5B6B77]">Vai trò tài khoản:</span>
-            <span className="font-bold text-[#0B6B73]">
-              {user?.role === 'caregiver' ? 'Người thân chăm sóc' : 'Người bệnh (Chính chủ)'}
-            </span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

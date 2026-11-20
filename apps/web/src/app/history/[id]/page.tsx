@@ -541,6 +541,30 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
       )}
+
+      {/* SECTION 4: ASK AI DOCTOR CARD */}
+      <div className="bg-gradient-to-r from-[#073F46] to-[#0B6B73] rounded-3xl p-6 sm:p-8 text-white shadow-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        <div className="space-y-2 max-w-xl">
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-emerald-200">
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>Tư vấn trực tiếp với AI</span>
+          </div>
+          <h3 className="text-2xl font-black">
+            Bác còn điều gì chưa rõ về phiếu khám này?
+          </h3>
+          <p className="text-emerald-100 text-base leading-relaxed">
+            Bác có thể hỏi trực tiếp Bác Sĩ AI MediRead để được giải thích chi tiết hơn về các chỉ số xét nghiệm, liều lượng dùng thuốc và chế độ ăn uống phù hợp.
+          </p>
+        </div>
+
+        <Link
+          href={`/ai-chat?document_id=${doc.id}&facility=${encodeURIComponent(doc.facility_name || '')}`}
+          className="bg-white hover:bg-emerald-50 text-[#073F46] px-6 py-4 rounded-2xl font-black text-base shadow-lg transition elderly-tap-target flex items-center gap-2 whitespace-nowrap self-stretch sm:self-auto justify-center"
+        >
+          <Sparkles className="w-5 h-5 text-[#0B6B73]" />
+          <span>Hỏi Bác Sĩ AI ngay</span>
+        </Link>
+      </div>
     </div>
   );
 }

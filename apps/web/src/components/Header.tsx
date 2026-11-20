@@ -17,6 +17,8 @@ import {
   UserCheck,
   LogOut,
   Pill,
+  Sparkles,
+  Bot,
 } from 'lucide-react';
 import { useElderlyPreferences } from './ElderlyPreferencesContext';
 import { api } from '../lib/api';
@@ -44,6 +46,7 @@ export function Header() {
   const navLinks = [
     { href: '/', label: 'Trang chủ', icon: HeartPulse },
     { href: '/scan', label: 'Quét phiếu', icon: Camera },
+    { href: '/ai-chat', label: 'Bác Sĩ AI', icon: Sparkles },
     { href: '/history', label: 'Lịch sử', icon: History },
     { href: '/trends', label: 'Xu hướng', icon: TrendingUp },
     { href: '/medications', label: 'Lịch thuốc', icon: Clock },

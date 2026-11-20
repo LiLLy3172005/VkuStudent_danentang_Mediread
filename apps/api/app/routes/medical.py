@@ -76,66 +76,34 @@ async def list_medications(
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Returns list of active medications from user prescriptions."""
-    # Mock / live fetch
-    return [
-        {
-            "id": str(uuid.uuid4()),
-            "name": "Amlodipin 5mg",
-            "dosage": "1 viên",
-            "times_per_day": 1,
-            "instructions": "Uống buổi sáng sau ăn",
-            "active": True,
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "name": "Metformin 500mg",
-            "dosage": "1 viên",
-            "times_per_day": 2,
-            "instructions": "Uống sau ăn sáng và tối",
-            "active": True,
-        },
-    ]
+    if db_service.is_connected() and db_service._client:
+        try:
+            res = db_service._client.table("documents").select("medications").eq("user_id", str(current_user.id)).execute()
+            all_meds = []
+            if res.data:
+                for doc in res.data:
+                    meds = doc.get("medications") or []
+                    for m in meds:
+                        all_meds.append({
+                            "id": m.get("id") or str(uuid.uuid4()),
+                            "name": m.get("name") or "Thuốc điều trị",
+                            "dosage": m.get("dosage") or "1 viên",
+                            "times_per_day": m.get("times_per_day") or 1,
+                            "instructions": m.get("instructions") or "Uống theo chỉ định",
+                            "active": True,
+                        })
+            return all_meds
+        except Exception:
+            pass
+    return []
 
 
 @router.get("/schedules")
 async def list_schedules(
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Returns today's 4 reminder slots for elderly patients."""
-    return [
-        {
-            "id": str(uuid.uuid4()),
-            "medication_name": "Amlodipin 5mg",
-            "time_of_day": "07:00",
-            "slot_name": "Sáng",
-            "dosage": "1 viên",
-            "status": "taken",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "medication_name": "Metformin 500mg",
-            "time_of_day": "11:30",
-            "slot_name": "Trưa",
-            "dosage": "1 viên",
-            "status": "pending",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "medication_name": "Vitamin B tổng hợp",
-            "time_of_day": "16:00",
-            "slot_name": "Chiều",
-            "dosage": "1 viên",
-            "status": "pending",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "medication_name": "Metformin 500mg",
-            "time_of_day": "20:00",
-            "slot_name": "Tối",
-            "dosage": "1 viên",
-            "status": "pending",
-        },
-    ]
+    """Returns today's reminder slots for elderly patients based on real user prescriptions."""
+    return []
 
 
 @router.post("/doses/{log_id}/mark")

@@ -59,6 +59,15 @@ export default function MedicationsPage() {
     }
   };
 
+  const handleClearAll = () => {
+    if (confirm('Bác có chắc muốn xóa TOÀN BỘ lịch uống thuốc hiện tại không? Thao tác này sẽ xóa sạch danh sách thuốc để bác làm mới hoặc quét đơn thuốc mới.')) {
+      api.clearAllMedicationSchedules();
+      setSchedules([]);
+      setLastAction('✓ Đã xóa sạch toàn bộ lịch uống thuốc.');
+      setTimeout(() => setLastAction(null), 3500);
+    }
+  };
+
   const handleDelete = (id: string, name: string) => {
     if (confirm(`Bác có chắc muốn xóa thuốc "${name}" khỏi lịch uống không?`)) {
       const updated = api.deleteMedicationScheduleItem(id);
@@ -128,6 +137,16 @@ export default function MedicationsPage() {
             <RotateCcw className="w-4 h-4 text-gray-500" />
             <span>Ngày mới</span>
           </button>
+          {schedules.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="px-3.5 py-2.5 rounded-xl border border-rose-200 hover:bg-rose-50 text-rose-700 font-bold text-sm flex items-center gap-1.5 elderly-tap-target transition"
+              title="Xóa toàn bộ cữ thuốc hiện tại"
+            >
+              <Trash2 className="w-4 h-4 text-rose-500" />
+              <span>Xóa tất cả</span>
+            </button>
+          )}
           <TTSPlayer text={speechText} label="Nghe lịch thuốc" />
         </div>
       </div>
@@ -139,100 +158,136 @@ export default function MedicationsPage() {
         </div>
       )}
 
-      {/* Daily Progress Tracker Card */}
-      <div className="bg-gradient-to-r from-[#073F46] to-[#0B6B73] text-white rounded-3xl p-6 sm:p-8 shadow-card space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <span className="text-emerald-300 font-bold text-xs uppercase tracking-wider">
-              Tiến độ uống thuốc hôm nay
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black mt-1">
-              Đã uống {takenDoses} / {totalDoses} cữ thuốc ({progressPercent}%)
-            </h2>
+      {/* If No Medications, Render Friendly Empty State */}
+      {schedules.length === 0 ? (
+        <div className="bg-white border-2 border-[#DDEEEB] rounded-3xl p-8 sm:p-12 text-center space-y-6 shadow-card">
+          <div className="w-20 h-20 rounded-3xl bg-[#DDEEEB] text-[#0B6B73] flex items-center justify-center mx-auto text-3xl shadow-sm">
+            <Pill className="w-10 h-10" />
+          </div>
+          <div className="max-w-md mx-auto space-y-2">
+            <h3 className="text-2xl font-black text-[#073F46]">
+              Chưa Có Lịch Uống Thuốc Nào
+            </h3>
+            <p className="text-base text-[#5B6B77] leading-relaxed">
+              Danh sách hiện tại hoàn toàn trống. Bác có thể chụp đơn thuốc đã khám để AI tự động trích xuất các cữ thuốc, hoặc bấm nút thêm thuốc thủ công bên dưới.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+            <Link
+              href="/scan"
+              className="bg-[#0B6B73] hover:bg-[#073F46] text-white px-7 py-3.5 rounded-2xl font-black text-base flex items-center gap-2 shadow-button transition elderly-tap-target"
+            >
+              <FileText className="w-5 h-5" />
+              <span>Chụp / Quét Đơn Thuốc Mới</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="bg-white border-2 border-[#0B6B73] hover:bg-[#F2F8F7] text-[#073F46] px-6 py-3.5 rounded-2xl font-bold text-base flex items-center gap-2 transition elderly-tap-target"
+            >
+              <Plus className="w-5 h-5 text-[#0B6B73]" />
+              <span>Thêm Thuốc Thủ Công</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Daily Progress Tracker Card */}
+          <div className="bg-gradient-to-r from-[#073F46] to-[#0B6B73] text-white rounded-3xl p-6 sm:p-8 shadow-card space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-emerald-300 font-bold text-xs uppercase tracking-wider">
+                  Tiến độ uống thuốc hôm nay
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black mt-1">
+                  Đã uống {takenDoses} / {totalDoses} cữ thuốc ({progressPercent}%)
+                </h2>
+              </div>
+
+              <Link
+                href="/history"
+                className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2.5 rounded-xl font-bold text-sm backdrop-blur-sm transition elderly-tap-target self-start sm:self-auto"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Xem Đơn Thuốc Đã Quét</span>
+              </Link>
+            </div>
+
+            <div className="w-full bg-black/20 rounded-full h-4 overflow-hidden p-0.5">
+              <div
+                className="bg-emerald-400 h-full rounded-full transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
 
-          <Link
-            href="/history"
-            className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2.5 rounded-xl font-bold text-sm backdrop-blur-sm transition elderly-tap-target self-start sm:self-auto"
-          >
-            <FileText className="w-4 h-4" />
-            <span>Xem Đơn Thuốc Đã Quét</span>
-          </Link>
-        </div>
+          {/* SLOTS RENDER */}
+          <div className="space-y-6">
+            {/* Slot Sáng */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-xl font-black text-amber-700">
+                <Sun className="w-6 h-6 text-amber-500" />
+                <span>Cữ Sáng (07:00 - 08:30)</span>
+                <span className="text-xs bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-bold">
+                  {morningList.length} loại
+                </span>
+              </div>
 
-        <div className="w-full bg-black/20 rounded-full h-4 overflow-hidden p-0.5">
-          <div
-            className="bg-emerald-400 h-full rounded-full transition-all duration-500"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      </div>
+              {morningList.length === 0 ? (
+                <div className="bg-white p-4 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium">
+                  Không có thuốc cần uống vào cữ sáng.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {morningList.map((slot) => renderSlotCard(slot, handleMark, handleDelete))}
+                </div>
+              )}
+            </div>
 
-      {/* SLOTS RENDER */}
-      <div className="space-y-6">
-        {/* Slot Sáng */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xl font-black text-amber-700">
-            <Sun className="w-6 h-6 text-amber-500" />
-            <span>Cữ Sáng (07:00 - 08:30)</span>
-            <span className="text-xs bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-bold">
-              {morningList.length} loại
-            </span>
+            {/* Slot Trưa */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-xl font-black text-orange-700">
+                <Sunset className="w-6 h-6 text-orange-500" />
+                <span>Cữ Trưa (11:30 - 13:00)</span>
+                <span className="text-xs bg-orange-100 text-orange-800 px-2.5 py-0.5 rounded-full font-bold">
+                  {noonList.length} loại
+                </span>
+              </div>
+
+              {noonList.length === 0 ? (
+                <div className="bg-white p-4 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium">
+                  Không có thuốc cần uống vào cữ trưa.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {noonList.map((slot) => renderSlotCard(slot, handleMark, handleDelete))}
+                </div>
+              )}
+            </div>
+
+            {/* Slot Tối */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-xl font-black text-indigo-800">
+                <Moon className="w-6 h-6 text-indigo-500" />
+                <span>Cữ Tối (19:00 - 20:30)</span>
+                <span className="text-xs bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full font-bold">
+                  {eveningList.length} loại
+                </span>
+              </div>
+
+              {eveningList.length === 0 ? (
+                <div className="bg-white p-4 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium">
+                  Không có thuốc cần uống vào cữ tối.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {eveningList.map((slot) => renderSlotCard(slot, handleMark, handleDelete))}
+                </div>
+              )}
+            </div>
           </div>
-
-          {morningList.length === 0 ? (
-            <div className="bg-white p-4 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium">
-              Không có thuốc cần uống vào cữ sáng.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {morningList.map((slot) => renderSlotCard(slot, handleMark, handleDelete))}
-            </div>
-          )}
-        </div>
-
-        {/* Slot Trưa */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xl font-black text-orange-700">
-            <Sunset className="w-6 h-6 text-orange-500" />
-            <span>Cữ Trưa (11:30 - 13:00)</span>
-            <span className="text-xs bg-orange-100 text-orange-800 px-2.5 py-0.5 rounded-full font-bold">
-              {noonList.length} loại
-            </span>
-          </div>
-
-          {noonList.length === 0 ? (
-            <div className="bg-white p-4 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium">
-              Không có thuốc cần uống vào cữ trưa.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {noonList.map((slot) => renderSlotCard(slot, handleMark, handleDelete))}
-            </div>
-          )}
-        </div>
-
-        {/* Slot Tối */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xl font-black text-indigo-800">
-            <Moon className="w-6 h-6 text-indigo-500" />
-            <span>Cữ Tối (19:00 - 20:30)</span>
-            <span className="text-xs bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full font-bold">
-              {eveningList.length} loại
-            </span>
-          </div>
-
-          {eveningList.length === 0 ? (
-            <div className="bg-white p-4 rounded-2xl border border-gray-200 text-gray-500 text-sm font-medium">
-              Không có thuốc cần uống vào cữ tối.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {eveningList.map((slot) => renderSlotCard(slot, handleMark, handleDelete))}
-            </div>
-          )}
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Manual Add Medication Modal */}
       {showAddModal && (

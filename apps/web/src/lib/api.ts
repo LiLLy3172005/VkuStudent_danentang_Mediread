@@ -175,6 +175,10 @@ export const api = {
     return res.json();
   },
 
+  async getDocuments(patientId?: string): Promise<DocumentSummary[]> {
+    return this.listDocuments(patientId);
+  },
+
   async getDocumentDetail(id: string): Promise<DocumentDetail> {
     const baseUrl = getApiBaseUrl();
     const res = await fetch(`${baseUrl}/api/v1/documents/${id}`, {
@@ -270,52 +274,58 @@ export const api = {
     return res.json();
   },
 
+  async deleteCareLink(linkId: string): Promise<any> {
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/api/v1/care-links/${linkId}`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+    });
+    return res.json();
+  },
+
+  async deleteAccount(accountId: string): Promise<any> {
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/api/v1/auth/accounts/${accountId}`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+    });
+    return res.json();
+  },
+
+  async chatDoctorAI(message: string, documentId?: string): Promise<{ reply: string; suggested_questions?: string[] }> {
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/api/v1/ai/chat`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: message.trim(), document_id: documentId || undefined }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Không thể kết nối tới Bác Sĩ AI.');
+    }
+    return res.json();
+  },
+
   // --- Medication Persistent Schedule Management ---
   getMedicationSchedules(): ScheduleItem[] {
     if (typeof window === 'undefined') return [];
     try {
       const raw = localStorage.getItem(MEDICATION_SCHEDULE_STORAGE_KEY);
-      if (!raw) return this.getDefaultSchedules();
+      if (!raw) return [];
       const items: ScheduleItem[] = JSON.parse(raw);
-      return items;
+      return Array.isArray(items) ? items : [];
     } catch {
-      return this.getDefaultSchedules();
+      return [];
     }
   },
 
-  getDefaultSchedules(): ScheduleItem[] {
-    return [
-      {
-        id: 'default-1',
-        name: 'Amlodipin 5mg',
-        slotKey: 'morning',
-        slotName: 'Cữ Sáng',
-        time: '07:00',
-        dosage: '1 viên',
-        instructions: 'Uống sau bữa ăn sáng 15 phút với nước ấm',
-        status: 'taken',
-      },
-      {
-        id: 'default-2',
-        name: 'Metformin 500mg',
-        slotKey: 'noon',
-        slotName: 'Cữ Trưa',
-        time: '11:30',
-        dosage: '1 viên',
-        instructions: 'Uống ngay trước bữa ăn trưa',
-        status: 'pending',
-      },
-      {
-        id: 'default-3',
-        name: 'Bình vôi 150mg + Sen lá (Night queen)',
-        slotKey: 'evening',
-        slotName: 'Cữ Tối',
-        time: '19:30',
-        dosage: '2 viên',
-        instructions: 'Uống sau bữa ăn tối hoặc trước khi đi ngủ 30 phút',
-        status: 'pending',
-      },
-    ];
+  clearAllMedicationSchedules(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(MEDICATION_SCHEDULE_STORAGE_KEY);
+    }
   },
 
   saveMedicationSchedules(schedules: ScheduleItem[]): void {

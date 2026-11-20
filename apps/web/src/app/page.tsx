@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Camera, Clock, TrendingUp, ShieldCheck, HeartPulse, ArrowRight, FileText, CheckCircle2 } from 'lucide-react';
+import { Camera, Clock, TrendingUp, ShieldCheck, HeartPulse, ArrowRight, FileText, CheckCircle2, Sparkles, Bot } from 'lucide-react';
 import { TTSPlayer } from '../components/Footer';
 
 export default function HomePage() {
@@ -33,13 +33,39 @@ export default function HomePage() {
               <span>Chụp / Quét phiếu ngay</span>
             </Link>
 
+            <Link
+              href="/ai-chat"
+              className="inline-flex items-center gap-2 bg-[#0B6B73] hover:bg-[#073F46] border border-white/30 text-white px-5 py-3.5 rounded-2xl font-bold text-base shadow-lg transition elderly-tap-target"
+            >
+              <Sparkles className="w-5 h-5 text-amber-300" />
+              <span>Hỏi Bác Sĩ AI</span>
+            </Link>
+
             <TTSPlayer text={welcomeText} label="Nghe hướng dẫn" />
           </div>
         </div>
       </div>
 
-      {/* 4 Feature Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Feature Action Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Link
+          href="/ai-chat"
+          className="bg-white border-2 border-[#DDEEEB] hover:border-[#0B6B73] rounded-3xl p-6 transition shadow-card group flex flex-col justify-between"
+        >
+          <div className="space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-[#DDEEEB] text-[#0B6B73] flex items-center justify-center text-2xl group-hover:scale-110 transition">
+              <Sparkles className="w-7 h-7 text-[#0B6B73]" />
+            </div>
+            <h2 className="text-xl font-extrabold text-[#073F46]">Hỏi Bác Sĩ AI</h2>
+            <p className="text-[#5B6B77] text-base">
+              Tư vấn y khoa ân cần, giải thích chỉ số xét nghiệm và giải đáp câu hỏi dùng thuốc.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-[#0B6B73] font-bold pt-4 text-base">
+            <span>Trò chuyện ngay</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+          </div>
+        </Link>
         <Link
           href="/scan"
           className="bg-white border-2 border-[#DDEEEB] hover:border-[#0B6B73] rounded-3xl p-6 transition shadow-card group flex flex-col justify-between"

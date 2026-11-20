@@ -14,6 +14,7 @@ import {
   Calendar,
   Sparkles,
   CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 import { TTSPlayer } from '../../components/Footer';
 import { api } from '../../lib/api';
@@ -42,6 +43,13 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'register' || params.get('tab') === 'register') {
+        setTab('register');
+      }
+    }
+
     async function loadAccounts() {
       try {
         const list = await api.getAccounts();
@@ -54,6 +62,19 @@ export default function LoginPage() {
     }
     loadAccounts();
   }, []);
+
+  // Delete account from Supabase list
+  const handleDeleteAccount = async (e: React.MouseEvent, acc: AccountSummary) => {
+    e.stopPropagation();
+    if (confirm(`Bác/Bạn có chắc muốn xóa tài khoản "${acc.full_name}" khỏi hệ thống không?`)) {
+      try {
+        await api.deleteAccount(acc.id);
+        setAccounts((prev) => prev.filter((a) => a.id !== acc.id));
+      } catch (err: any) {
+        alert(err.message || 'Không thể xóa tài khoản này.');
+      }
+    }
+  };
 
   // Quick 1-click login from Supabase account list
   const handleQuickLogin = async (acc: AccountSummary) => {
@@ -216,37 +237,51 @@ export default function LoginPage() {
                 {accounts.map((acc) => {
                   const isPatient = acc.role === 'patient';
                   return (
-                    <button
+                    <div
                       key={acc.id}
-                      onClick={() => handleQuickLogin(acc)}
-                      disabled={loading}
-                      className="p-3.5 rounded-2xl border-2 border-[#DDEEEB] hover:border-[#0B6B73] hover:bg-[#F2F8F7] transition text-left flex items-start gap-3 elderly-tap-target group"
+                      className="relative rounded-2xl border-2 border-[#DDEEEB] hover:border-[#0B6B73] hover:bg-[#F2F8F7] transition flex items-center justify-between p-3.5 group"
                     >
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shrink-0 shadow-sm ${
-                          isPatient ? 'bg-[#0B6B73]' : 'bg-[#D97706]'
-                        }`}
+                      <button
+                        type="button"
+                        onClick={() => handleQuickLogin(acc)}
+                        disabled={loading}
+                        className="flex-1 text-left flex items-start gap-3 elderly-tap-target min-w-0"
                       >
-                        {acc.full_name.charAt(0)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-[#14283A] group-hover:text-[#0B6B73] truncate">
-                          {acc.full_name}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-[#5B6B77] mt-0.5">
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              isPatient
-                                ? 'bg-[#DDEEEB] text-[#073F46]'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}
-                          >
-                            {isPatient ? 'Bệnh nhân' : 'Chăm sóc'}
-                          </span>
-                          {acc.birth_year && <span>SN {acc.birth_year}</span>}
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shrink-0 shadow-sm ${
+                            isPatient ? 'bg-[#0B6B73]' : 'bg-[#D97706]'
+                          }`}
+                        >
+                          {acc.full_name.charAt(0)}
                         </div>
-                      </div>
-                    </button>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-[#14283A] group-hover:text-[#0B6B73] truncate">
+                            {acc.full_name}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-[#5B6B77] mt-0.5">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                isPatient
+                                  ? 'bg-[#DDEEEB] text-[#073F46]'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {isPatient ? 'Bệnh nhân' : 'Chăm sóc'}
+                            </span>
+                            {acc.birth_year && <span>SN {acc.birth_year}</span>}
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteAccount(e, acc)}
+                        className="p-2 text-gray-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition shrink-0 ml-1"
+                        title="Xóa tài khoản này"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -437,19 +472,27 @@ export default function LoginPage() {
 
             {/* 4. Số điện thoại */}
             <div>
-              <label className="block text-sm font-bold text-[#073F46] mb-1.5">
-                5. Số điện thoại (tùy chọn):
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-bold text-[#073F46]">
+                  5. Số điện thoại (chưa bắt buộc / tùy chọn):
+                </label>
+                <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold">
+                  Không bắt buộc
+                </span>
+              </div>
               <div className="relative">
                 <Phone className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
                   type="tel"
-                  placeholder="Ví dụ: 0912 345 678"
+                  placeholder="Ví dụ: 0912 345 678 (Có thể để trống nếu chưa có)"
                   value={regPhone}
                   onChange={(e) => setRegPhone(e.target.value)}
                   className="w-full bg-[#F8FAFA] border-2 border-[#DDEEEB] rounded-2xl pl-12 pr-4 py-3.5 text-base font-bold text-[#14283A] focus:outline-none focus:border-[#0B6B73]"
                 />
               </div>
+              <p className="text-xs text-[#5B6B77] mt-1 font-medium">
+                💡 Không bắt buộc. Bác có thể để trống hoặc điền số điện thoại để sau này nhận tin nhắn nhắc uống thuốc.
+              </p>
             </div>
 
             {/* 5. Mật khẩu bảo mật */}

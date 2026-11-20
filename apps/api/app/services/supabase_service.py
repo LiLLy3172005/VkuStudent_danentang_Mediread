@@ -595,5 +595,60 @@ class SupabaseService:
             return link
         return {"id": link_str, "status": "revoked"}
 
+    async def delete_care_link(self, user_id: uuid.UUID, link_id: uuid.UUID) -> Dict[str, Any]:
+        """Permanently deletes an existing care link."""
+        user_str = str(user_id)
+        link_str = str(link_id)
+
+        if self.is_connected() and self._client:
+            try:
+                res = self._client.table("care_links").select("*").eq("id", link_str).execute()
+                if not res.data:
+                    return {"id": link_str, "deleted": True}
+                link = res.data[0]
+                if str(link.get("patient_id")) != user_str and str(link.get("caregiver_id")) != user_str:
+                    raise ValueError("Bạn không có quyền xóa liên kết này.")
+
+                self._client.table("care_links").delete().eq("id", link_str).execute()
+                return {"id": link_str, "deleted": True}
+            except ValueError:
+                raise
+            except Exception as exc:
+                logger.error("Supabase delete_care_link failed: %s", exc)
+
+        if link_str in self._mock_care_links:
+            del self._mock_care_links[link_str]
+        return {"id": link_str, "deleted": True}
+
+    async def delete_user_account(self, user_id: uuid.UUID, target_id: uuid.UUID) -> Dict[str, Any]:
+        """Deletes a profile / relative account and associated records."""
+        target_str = str(target_id)
+        if self.is_connected() and self._client:
+            try:
+                # 1. Delete associated care links
+                self._client.table("care_links").delete().or_(f"patient_id.eq.{target_str},caregiver_id.eq.{target_str}").execute()
+                # 2. Delete credentials
+                try:
+                    self._client.table("user_credentials").delete().eq("user_id", target_str).execute()
+                except Exception:
+                    pass
+                # 3. Delete documents
+                try:
+                    self._client.table("documents").delete().eq("user_id", target_str).execute()
+                except Exception:
+                    pass
+                # 4. Delete profile
+                self._client.table("profiles").delete().eq("id", target_str).execute()
+                # 5. Delete Supabase Auth user if possible
+                try:
+                    self._client.auth.admin.delete_user(target_str)
+                except Exception:
+                    pass
+                return {"id": target_str, "deleted": True}
+            except Exception as exc:
+                logger.error("Supabase delete_user_account failed: %s", exc)
+
+        return {"id": target_str, "deleted": True}
+
 
 db_service = SupabaseService()

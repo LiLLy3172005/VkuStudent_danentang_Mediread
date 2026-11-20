@@ -351,3 +351,20 @@ async def get_me(current_user: AuthenticatedUser = Depends(get_current_user)):
             logger.warning("Failed to fetch full profile: %s", exc)
 
     return profile_data
+
+
+@router.delete("/accounts/{account_id}")
+async def delete_account_route(
+    account_id: uuid.UUID,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """Deletes an account / profile (e.g., relative account or demo profile)."""
+    try:
+        await db_service.delete_user_account(current_user.id, account_id)
+        return {"message": "Đã xóa tài khoản thành công.", "id": str(account_id)}
+    except Exception as exc:
+        logger.error("Failed to delete account %s: %s", account_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Không thể xóa tài khoản: {exc}",
+        )
