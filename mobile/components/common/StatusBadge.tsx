@@ -10,9 +10,20 @@ interface StatusBadgeProps {
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ flag, label }) => {
   const flagUpper = String(flag || '').toUpperCase();
-  const isHigh = flagUpper === 'H' || flagUpper === 'HIGH';
-  const isLow = flagUpper === 'L' || flagUpper === 'LOW';
-  const isNormal = flagUpper === 'N' || flagUpper === 'NORMAL';
+  const isBorderline = flagUpper === 'BORDERLINE' || flagUpper === 'B' || label === 'Sát ngưỡng';
+  const isHigh = !isBorderline && (flagUpper === 'H' || flagUpper === 'HIGH');
+  const isLow = !isBorderline && (flagUpper === 'L' || flagUpper === 'LOW');
+  const isNormal = !isBorderline && (flagUpper === 'N' || flagUpper === 'NORMAL');
+
+  if (isBorderline) {
+    return (
+      <View style={[styles.badge, styles.badgeBorderline]}>
+        <Text style={[styles.text, styles.textBorderline]} numberOfLines={1} allowFontScaling={false}>
+          ~ {label || 'Sát ngưỡng'}
+        </Text>
+      </View>
+    );
+  }
 
   if (isHigh) {
     return (
@@ -74,6 +85,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.normalBg,
     borderColor: Colors.normalBorder,
   },
+  badgeBorderline: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
   badgeUnknown: {
     backgroundColor: Colors.unknownBg,
     borderColor: '#E5E7EB',
@@ -81,6 +96,9 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  textBorderline: {
+    color: '#B45309',
   },
   textHigh: {
     color: Colors.highText,

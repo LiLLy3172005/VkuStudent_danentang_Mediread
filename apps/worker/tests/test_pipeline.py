@@ -90,6 +90,7 @@ class TestNumberAndUnitParsing(unittest.TestCase):
         self.assertEqual(clean_unit("109/L"), "10^9/L")
         self.assertEqual(clean_unit("G/l"), "G/L")
         self.assertEqual(clean_unit("fi"), "fL")
+        self.assertEqual(clean_unit("fl"), "fL")
         # Hematology OCR mistranscriptions
         self.assertEqual(clean_unit("2/dL"), "g/dL")
         self.assertEqual(clean_unit("P8"), "pg")
@@ -216,10 +217,10 @@ class TestFlagAndProvenanceSafety(unittest.TestCase):
         rdw = LabNormalizer.normalize_item({"name": "RDW", "value": "10.7", "unit": "%", "reference_range": "11.5 - 14.5"})
         neu = LabNormalizer.normalize_item({"name": "Bạch cầu trung tính (NEU%)", "value": "80.4", "unit": "%", "reference_range": "37.0 - 80.0"})
 
-        # RBC & HCT should be higher priority than RDW, and RDW higher priority than NEU% differential
-        self.assertGreater(clinical_priority_score(rbc), clinical_priority_score(rdw))
-        self.assertGreater(clinical_priority_score(hct), clinical_priority_score(rdw))
-        self.assertGreater(clinical_priority_score(rdw), clinical_priority_score(neu))
+        # RBC & HCT should be higher priority than NEU% (cờ CAO), and NEU% higher priority than RDW (giảm lành tính)
+        self.assertGreater(clinical_priority_score(rbc), clinical_priority_score(neu))
+        self.assertGreater(clinical_priority_score(hct), clinical_priority_score(neu))
+        self.assertGreater(clinical_priority_score(neu), clinical_priority_score(rdw))
 
 
 class TestCacheAndSchemaContracts(unittest.TestCase):

@@ -50,13 +50,16 @@ def clinical_priority_score(lab) -> float:
     if any(k in name_lower for k in ["đường huyết", "glucose", "creatinin", "men gan", "ast", "alt"]):
         return base + 75.0
 
-    # 3. Chỉ số hồng cầu thứ cấp & mỡ máu
-    if code in ("MCV", "MCH", "MCHC", "RDW", "CHOL", "TRIG", "HDL", "LDL", "URIC", "ALB", "PROT"):
-        return base + 40.0
-
-    # 4. Thành phần bạch cầu dạng % (NEU%, LYM%, MONO%, EOS%, BASO%)
+    # 3. Thành phần bạch cầu có cờ cảnh báo (NEU%, BASO%, EOS%, LYM%, MONO%)
+    # Cần ưu tiên giải thích khi có cờ HIGH/LOW để người dùng hiểu là dao động sinh lý, tránh hoang mang
     if code in ("NEU_P", "LYM_P", "MONO_P", "EOS_P", "BASO_P", "NEU", "LYM", "MONO", "EOS", "BASO") or "%" in name_lower:
-        return base - 30.0
+        return base + 30.0 if flag in ("high", "low") else base - 30.0
+
+    # 4. Chỉ số hồng cầu thứ cấp lành tính: RDW, MCV, MCH, MPV
+    if code in ("MCV", "MCH", "MCHC", "RDW", "CHOL", "TRIG", "HDL", "LDL", "URIC", "ALB", "PROT"):
+        if code == "RDW":
+            return base + 15.0
+        return base + 20.0
 
     return base
 
@@ -73,13 +76,14 @@ def build_clinical_context(labs: list, target_lab) -> str:
     rbc_lab = next((l for l in labs if (l.normalized_code or "").upper() == "RBC"), None)
     hct_lab = next((l for l in labs if (l.normalized_code or "").upper() == "HCT"), None)
     mcv_lab = next((l for l in labs if (l.normalized_code or "").upper() == "MCV"), None)
+    hgb_lab = next((l for l in labs if (l.normalized_code or "").upper() == "HGB"), None)
 
     is_anemia = (rbc_lab and str(getattr(rbc_lab.flag, "value", rbc_lab.flag)).lower() == "low") or \
                 (hct_lab and str(getattr(hct_lab.flag, "value", hct_lab.flag)).lower() == "low")
     if is_anemia:
         mcv_val = mcv_lab.value_num if mcv_lab and mcv_lab.value_num is not None else 89.1
-        if mcv_val and 80.0 <= mcv_val <= 97.0:
-            ctx_parts.append("Chỉ số hồng cầu (RBC/HCT) giảm nhẹ với thể tích trung bình hồng cầu (MCV) bình thường, phù hợp với hội chứng thiếu máu hồng cầu bình thường mức độ nhẹ.")
+        hgb_val = hgb_lab.value_num if hgb_lab and hgb_lab.value_num is not None else 12.5
+        ctx_parts.append(f"RBC và HCT thấp nhẹ, Hb ({hgb_val} g/dL) nằm sát ngưỡng dưới; thể tích hồng cầu MCV ({mcv_val} fL) bình thường. Tùy thuộc vào giới tính (nam hay nữ), kết quả này có thể gợi ý thiếu máu hồng cầu bình thường mức độ nhẹ, không hướng đến thiếu máu thiếu sắt điển hình. Cần duy trì dinh dưỡng cân đối và tái khám bác sĩ.")
 
     return " ".join(ctx_parts)
 
@@ -170,7 +174,7 @@ class DocumentProcessor:
             if str(lab.quality_status.value if hasattr(lab.quality_status, "value") else lab.quality_status).lower() == "needs_review"
         ]
 
-        for lab in target_labs[:3]:  # Ưu tiên tối đa 3 chỉ số bất thường có ý nghĩa lâm sàng cao nhất
+        for lab in target_labs[:5]:  # Giải thích tối đa 5 chỉ số bất thường có ý nghĩa lâm sàng
             flag_str = str(lab.flag.value if hasattr(lab.flag, "value") else lab.flag).lower()
             clin_ctx = build_clinical_context(normalized_labs, lab)
             exp = self.rag_explainer.explain_item(

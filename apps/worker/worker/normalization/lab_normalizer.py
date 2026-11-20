@@ -102,7 +102,7 @@ def clean_unit(u: str) -> str:
     s = re.sub(r"(?<![\d^.])(10)(3|6|9|12)(?=\s*/)", r"\1^\2", s)
     s = re.sub(r"/1$", "/L", s)
     s = re.sub(r"/l$", "/L", s)
-    if s.lower() in ("fi", "il"):
+    if s.lower() in ("fi", "il", "fl"):
         s = "fL"
     # Sửa lỗi OCR hay đọc nhầm đơn vị huyết học:
     # 1. "2/dL", "2/dl", "2/L" -> "g/dL" hoặc "g/L" (chữ g bị nhầm thành số 2)

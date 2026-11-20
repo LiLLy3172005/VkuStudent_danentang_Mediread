@@ -115,23 +115,26 @@ def find_curated_knowledge(name: str) -> Optional[Dict[str, str]]:
     return None
 
 
-SAFE_EXPLAIN_PROMPT = """Bạn là bác sĩ trợ lý chuyên giải thích kết quả xét nghiệm y khoa cho người bệnh cao tuổi.
-Mục tiêu: Giúp người bệnh hiểu rõ chỉ số này là gì, kết quả của họ có ý nghĩa gì đối với sức khỏe và cần làm gì tiếp theo.
+SAFE_EXPLAIN_PROMPT = """Bạn là trợ lý y khoa chuyên giải thích kết quả xét nghiệm cho người bệnh một cách khoa học, khách quan, ân cần và chuẩn mực.
+Mục tiêu: Giúp người bệnh hiểu rõ ý nghĩa chỉ số của mình, không gây hoang mang lo lắng và biết hướng trao đổi phù hợp với bác sĩ điều trị.
 
 QUY TẮC BẮT BUỘC:
 1. KHÔNG đưa ra kết luận chẩn đoán xác định bệnh tật.
 2. KHÔNG tự ý thay đổi đơn thuốc hoặc liều dùng.
-3. Giải thích bằng tiếng Việt giản dị, ân cần, tôn trọng, xưng "bác sĩ" hoặc "hệ thống", gọi người bệnh là "bác" hoặc "cô chú".
-4. Nội dung gồm 3 ý chính (tối đa 4-5 câu, khoảng 100-140 từ):
-   - Chỉ số này là gì và có chức năng gì trong cơ thể.
-   - Nhận định kết quả hiện tại (khi {status_vi}) có ý nghĩa gì đối với sức khỏe.
-   - Lời khuyên ăn uống, nghỉ ngơi thực tế và lời dặn trao đổi với bác sĩ điều trị khi tái khám.
+3. Xưng hô trung tính, tôn trọng: xưng "bác sĩ" hoặc "hệ thống", gọi người bệnh là "bạn" (hoặc "bác/bạn").
+4. Cấu trúc câu trả lời (khoảng 3-4 câu, trình bày liền mạch, viết trọn vẹn câu kết thúc, tuyệt đối KHÔNG cắt lửng giữa chừng):
+   - Nêu ngắn gọn chức năng sinh lý của chỉ số trong cơ thể.
+   - Nhận định kết quả hiện tại một cách thận trọng, khoa học, tránh suy diễn quá mức.
+   - Lời khuyên sinh hoạt, dinh dưỡng cân đối và lời dặn trao đổi cụ thể với bác sĩ điều trị khi tái khám.
 5. NGUYÊN TẮC Y KHOA CHUẨN XÁC:
-   - Nếu giải thích về Hồng cầu (RBC) hoặc HCT thấp: Nhận định là dấu hiệu thiếu máu nhẹ; khuyên ăn uống bồi bổ thực phẩm giàu sắt, protein (thịt bò, trứng, rau xanh) và trao đổi với bác sĩ khi tái khám.
-   - Nếu giải thích về Bạch cầu thành phần (như NEU%, BASO%) chỉ chênh lệch nhẹ sát ngưỡng tham chiếu: KHÔNG khẳng định người bệnh bị nhiễm trùng nặng hay nhiễm khuẩn cấp, đây thường chỉ là dao động sinh lý bình thường.
-   - Bạch cầu ái kiềm (BASO): Liên quan đến dị ứng và viêm, KHÔNG liên quan đến chống vi khuẩn hay ăn đường tiết insulin.
-   - Độ phân bố hồng cầu (RDW) hơi thấp: Kích thước hồng cầu đồng đều, lành tính, không có ý nghĩa bệnh lý đáng lo.
-6. KHÔNG dùng tiêu đề markdown (# hoặc ##), không dùng từ chối rập khuôn.
+   - Nếu Hồng cầu (RBC) hoặc HCT thấp nhẹ, trong khi Hb nằm sát ngưỡng dưới: Nhận định là dấu hiệu có thể gợi ý tình trạng thiếu máu nhẹ (tùy thuộc vào giới tính và thể trạng). Khi MCV bình thường (khoảng 80-97 fL), tránh ngụ ý nguyên nhân do thiếu sắt; khuyên duy trì chế độ dinh dưỡng cân đối, bồi bổ sức khỏe và trao đổi cùng bác sĩ điều trị để tìm nguyên nhân.
+   - Nếu Bạch cầu thành phần (NEU%, BASO%) chỉ chênh lệch nhẹ sát ngưỡng tham chiếu khi tổng số lượng bạch cầu (WBC) bình thường: Nêu rõ đây thường chỉ là dao động sinh lý bình thường hoặc phản ứng thoáng qua của cơ thể, tuyệt đối KHÔNG khẳng định hay suy diễn nhiễm trùng nặng, nhiễm khuẩn cấp.
+   - Bạch cầu ái kiềm (BASO): Liên quan đến phản ứng dị ứng và viêm nhẹ, hoàn toàn KHÔNG liên quan đến chống vi khuẩn hay việc ăn đường tiết insulin.
+   - Độ phân bố hồng cầu (RDW) thấp: Nhận định là thấp nhẹ, cho thấy kích thước các hồng cầu rất đồng đều, thường hoàn toàn lành tính và không có ý nghĩa lâm sàng bệnh lý đáng lo.
+6. TUYỆT ĐỐI KHÔNG:
+   - KHÔNG nhắc lại các câu hỏi nội bộ hoặc tiêu đề (ví dụ: "chỉ số này là gì?", "ý nghĩa của kết quả hiện tại như thế nào?"). Bắt đầu trực tiếp ngay vào lời giải thích!
+   - KHÔNG dùng tiêu đề markdown (# hoặc ##).
+   - Phải viết trọn vẹn câu cuối cùng, không dừng ở dấu phẩy hay từ dở dang.
 
 [CHỈ SỐ BỆNH NHÂN]:
 - Tên chỉ số: {name}
@@ -322,7 +325,7 @@ class RagExplainer:
                         "keep_alive": "30m",
                         "options": {
                             "temperature": 0.1,
-                            "num_predict": 140,
+                            "num_predict": 384,
                             "num_ctx": 2048,
                         },
                     },
@@ -333,6 +336,8 @@ class RagExplainer:
             # Sanitize text
             clean_answer = re.sub(r"^\s*GIẢI THÍCH:\s*", "", raw_answer, flags=re.I)
             clean_answer = clean_answer.replace("#", "").replace("**", "")
+            # Lọc bỏ câu hỏi nội bộ lọt vào đầu câu trả lời (ví dụ: "chỉ số HCT là gì và ý nghĩa ... như thế nào?")
+            clean_answer = re.sub(r"^(?:(?:chào\s+)?(?:bạn|bác)(?:\s*sĩ)?\s*[:,-]?\s*)?[^.?!:\n]+là gì\s*(?:và[^.?!:\n]+)?\?+\s*", "", clean_answer, flags=re.I)
 
             # Check if model politely refused due to lack of evidence
             refused = "chưa nêu rõ" in clean_answer.lower()

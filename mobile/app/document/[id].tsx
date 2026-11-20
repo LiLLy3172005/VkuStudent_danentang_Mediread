@@ -85,28 +85,91 @@ export default function DocumentDetailScreen() {
     isHigh: boolean;
     isLow: boolean;
     isNormal: boolean;
+    isBloodOrRh?: boolean;
+    isNearBorderline?: boolean;
   } | null>(null);
 
   const getExplanationForIndicator = (indicatorName?: string, details?: any) => {
     if (!indicatorName || !doc) return '';
-    // Tìm kiếm trong danh sách RAG đã tạo trước
+    const target = indicatorName.toLowerCase();
+    const itemCode = (details?.item?.normalized_code || '').toUpperCase();
+
+    // 1. Tìm kiếm trong danh sách RAG đã tạo từ backend
     const found = (doc.explanations || []).find((e) => {
       const eName = (e.indicator_name || '').toLowerCase();
-      const target = indicatorName.toLowerCase();
-      return eName.includes(target) || target.includes(eName);
+      return eName.includes(target) || target.includes(eName) || (itemCode && eName.includes(itemCode.toLowerCase()));
     });
     if (found && (found.explanation || found.content)) {
-      return found.explanation || found.content;
+      let exp = found.explanation || found.content;
+      // Lọc bỏ câu hỏi nội bộ lọt vào đầu (như "Chỉ số ... là gì?")
+      exp = exp.replace(/^(?:(?:chào\s+)?(?:bạn|bác)(?:\s*sĩ)?\s*[:,-]?\s*)?[^.?!:\n]+là gì\s*(?:và[^.?!:\n]+)?\?+\s*/i, '');
+      return exp.trim();
     }
 
-    // Lời giải thích y khoa chi tiết, ân cần theo trạng thái chỉ số
-    const statusText = details?.isHigh
-      ? 'Chỉ số này của bác hiện đang CAO hơn ngưỡng chuẩn an toàn. Đây có thể là dấu hiệu cho thấy cơ thể đang có phản ứng viêm, biến đổi chuyển hóa hoặc cần điều chỉnh lại chế độ dinh dưỡng, thuốc uống. Bác nên giữ tinh thần thoải mái và trao đổi trực tiếp với bác sĩ điều trị để được chỉ định phác đồ phù hợp nhất nhé.'
-      : details?.isLow
-      ? 'Chỉ số này của bác hiện đang THẤP hơn mức bình thường. Bác nên chú ý bồi dưỡng cơ thể, ăn uống đầy đủ các nhóm chất dinh dưỡng, uống đủ nước và tái khám đúng hẹn để bác sĩ theo dõi sự phục hồi.'
-      : 'Chúc mừng bác! Chỉ số này của bác đang nằm trong khoảng tham chiếu hoàn toàn BÌNH THƯỜNG và an toàn. Bác hãy tiếp tục duy trì chế độ ăn uống khoa học, vận động nhẹ nhàng và tinh thần vui vẻ như hiện tại nhé!';
+    const valStr = details?.displayVal || '';
+    const unitStr = details?.displayUnit !== '-' ? details?.displayUnit : '';
+    const refStr = details?.refRange || '';
 
-    return `Chỉ số: ${indicatorName}\nKết quả: ${details?.displayVal} ${details?.displayUnit !== '-' ? details?.displayUnit : ''} (Khoảng tham chiếu chuẩn: ${details?.refRange}).\n\n${statusText}\n\nLời dặn: Bác nên tuân thủ đúng các hướng dẫn của bác sĩ khám bệnh và dùng thuốc theo đơn đã kê.`;
+    // 2. Tri thức lâm sàng chuyên biệt cho từng loại chỉ số:
+
+    // A. Nhóm máu hệ ABO & Yếu tố Rh (Đặc tính di truyền, không có bình thường/bất thường)
+    if (/nhóm\s*máu|blood\s*group|abo/i.test(target) || itemCode === 'BLOOD_GROUP') {
+      return `Chỉ số: ${indicatorName}\nKết quả: ${valStr}.\n\nNhóm máu hệ ABO là đặc tính di truyền cá nhân dùng để định danh nhóm máu phục vụ an toàn truyền máu. Chỉ số này mang tính chất phân loại sinh học tự nhiên, không có khái niệm "bình thường" hay "bất thường".`;
+    }
+    if (/\brh\b|rhesus/i.test(target) || itemCode === 'RH') {
+      return `Chỉ số: ${indicatorName}\nKết quả: ${valStr}.\n\nYếu tố Rhesus (Rh) là kháng nguyên D trên bề mặt hồng cầu. Kết quả Dương tính (+) cho biết bạn mang nhóm máu Rh dương (chiếm hơn 99.9% dân số Việt Nam), hoàn toàn bình thường và an toàn về mặt sinh học.`;
+    }
+
+    // B. Bạch cầu trung tính (NEU / NEU%)
+    if (/trung\s*tính|neu/i.test(target) || itemCode === 'NEU') {
+      return `Chỉ số: ${indicatorName}\nKết quả: ${valStr} ${unitStr} (Khoảng chuẩn: ${refStr}).\n\nBạch cầu trung tính (NEU%) là hàng rào miễn dịch bảo vệ cơ thể. Kết quả của bạn chỉ chênh nhẹ sát ngưỡng tham chiếu. Khi tổng số lượng bạch cầu (WBC) hoàn toàn bình thường, đây chỉ là dao động sinh lý bình thường hoặc phản ứng nhẹ thoáng qua, không phải là dấu hiệu của nhiễm trùng nặng. Bạn không cần lo lắng thái quá.`;
+    }
+
+    // C. Bạch cầu ái kiềm (BASO / BASO%)
+    if (/ái\s*kiềm|baso/i.test(target) || itemCode === 'BASO') {
+      return `Chỉ số: ${indicatorName}\nKết quả: ${valStr} ${unitStr} (Khoảng chuẩn: ${refStr}).\n\nBạch cầu ái kiềm (BASO%) tham gia vào phản ứng dị ứng và viêm nhẹ, hoàn toàn không liên quan đến nhiễm khuẩn cấp hay việc tiêu thụ đường/insulin. Mức chênh lệch nhẹ sát ngưỡng này không có ý nghĩa bệnh lý đáng lo ngại nếu bạn không có triệu chứng dị ứng kèm theo.`;
+    }
+
+    // D. Độ phân bố kích thước hồng cầu (RDW)
+    if (/phân\s*bố|rdw/i.test(target) || itemCode === 'RDW') {
+      return `Chỉ số: ${indicatorName}\nKết quả: ${valStr} ${unitStr} (Khoảng chuẩn: ${refStr}).\n\nChỉ số RDW ở mức thấp nhẹ. Kết quả này cho thấy các tế bào hồng cầu trong máu có kích thước rất đồng đều nhau, thường hoàn toàn lành tính và không có ý nghĩa lâm sàng bệnh lý đáng lo ngại.`;
+    }
+
+    // E. Huyết sắc tố (Hb / HGB)
+    if (/huyết\s*sắc\s*tố|hgb|hb\b/i.test(target) || itemCode === 'HGB') {
+      const hasRbcOrHctLow = (doc.lab_results || []).some((r: any) => {
+        const rCode = (r.normalized_code || '').toUpperCase();
+        const rName = (r.name || '').toLowerCase();
+        const isRbcHct = rCode === 'RBC' || rCode === 'HCT' || rName.includes('hồng cầu') || rName.includes('dung tích');
+        const flag = String(r.flag || '').toLowerCase();
+        return isRbcHct && flag === 'low';
+      });
+      if (hasRbcOrHctLow) {
+        return `Chỉ số: ${indicatorName}\nKết quả: ${valStr} ${unitStr} (Khoảng chuẩn: ${refStr}).\n\nHuyết sắc tố nằm trong giới hạn tham chiếu nhưng ở sát ngưỡng dưới. Khi kết hợp với việc RBC hoặc HCT thấp nhẹ, kết quả này có thể gợi ý tình trạng thiếu máu nhẹ tùy thuộc vào giới tính (khoảng tham chiếu nam thường cao hơn nữ). Bạn nên tham khảo ý kiến bác sĩ điều trị khi tái khám để được đánh giá toàn diện.`;
+      }
+      return `Chỉ số: ${indicatorName}\nKết quả: ${valStr} ${unitStr} (Khoảng chuẩn: ${refStr}).\n\nHuyết sắc tố của bạn nằm trong khoảng tham chiếu thông thường. Bạn hãy duy trì chế độ dinh dưỡng cân đối và lối sống lành mạnh.`;
+    }
+
+    // F. Hồng cầu (RBC) & Dung tích hồng cầu (HCT)
+    if (/hồng\s*cầu|dung\s*tích|rbc|hct/i.test(target) || itemCode === 'RBC' || itemCode === 'HCT') {
+      if (details?.isLow) {
+        return `Chỉ số: ${indicatorName}\nKết quả: ${valStr} ${unitStr} (Khoảng chuẩn: ${refStr}).\n\nChỉ số này thấp hơn khoảng chuẩn, có thể gợi ý tình trạng thiếu máu nhẹ tùy thuộc vào giới tính và thể trạng. Do thể tích trung bình hồng cầu (MCV) ở mức bình thường, không hướng tới thiếu máu thiếu sắt điển hình. Bạn nên bồi dưỡng cơ thể, ăn uống cân đối và trao đổi cùng bác sĩ khi tái khám để xác định nguyên nhân cụ thể.`;
+      }
+    }
+
+    // G. Các chỉ số khác
+    let statusText = '';
+    if (details?.isNearBorderline) {
+      statusText = 'Kết quả này chỉ chênh lệch nhẹ sát ngưỡng tham chiếu. Khi các chỉ số chức năng liên quan khác đều ổn định, đây thường là dao động sinh lý bình thường của cơ thể. Bạn không nên quá lo lắng.';
+    } else if (details?.isHigh) {
+      statusText = 'Kết quả này hiện cao hơn khoảng tham chiếu. Bạn nên trao đổi trực tiếp với bác sĩ điều trị trong lần tái khám để được đánh giá toàn diện.';
+    } else if (details?.isLow) {
+      statusText = 'Kết quả này hiện thấp hơn khoảng tham chiếu. Bạn nên chú ý bồi dưỡng cơ thể, ăn uống cân đối và trao đổi với bác sĩ khi tái khám.';
+    } else {
+      statusText = 'Chỉ số này của bạn nằm trong khoảng tham chiếu thông thường. Bạn hãy tiếp tục duy trì chế độ ăn uống cân đối, vận động hợp lý và theo dõi sức khỏe định kỳ.';
+    }
+
+    return `Chỉ số: ${indicatorName}\nKết quả: ${valStr} ${unitStr} (Khoảng chuẩn: ${refStr}).\n\n${statusText}\n\nLời dặn: Bạn nên tuân thủ đúng các hướng dẫn của bác sĩ điều trị.`;
   };
 
   useEffect(() => {
@@ -305,6 +368,11 @@ export default function DocumentDetailScreen() {
             </View>
 
             {doc.lab_results.map((item, idx) => {
+              // Kiểm tra xem có phải chỉ số nhóm máu hoặc Rh không
+              const isBloodOrRh = /nhóm\s*máu|blood\s*group|abo|\brh\b|rhesus/i.test(item.name || '') ||
+                                  item.normalized_code === 'BLOOD_GROUP' ||
+                                  item.normalized_code === 'RH';
+
               // 1. Resolve Value (Supports float numbers and qualitative text like 'neg')
               const rawVal = item.value_text || item.value_raw;
               let displayVal = '-';
@@ -315,7 +383,17 @@ export default function DocumentDetailScreen() {
                 displayVal = String(item.value_num);
               } else if (rawVal) {
                 const vt = String(rawVal).trim().toLowerCase();
-                if (vt === 'neg' || vt === 'negative' || vt === 'âm tính' || vt === 'am tinh' || vt === 'không phát hiện' || vt === 'không tìm thấy') {
+                if (isBloodOrRh) {
+                  if (vt === '+' || vt.includes('dương') || vt.includes('pos')) {
+                    displayVal = 'Dương tính (+)';
+                  } else if (vt === '-' || vt.includes('âm') || vt.includes('neg')) {
+                    displayVal = 'Âm tính (-)';
+                  } else if (/nhóm\s*máu|abo/i.test(item.name || '') || item.normalized_code === 'BLOOD_GROUP') {
+                    displayVal = 'Nhóm ' + String(rawVal).trim().toUpperCase();
+                  } else {
+                    displayVal = String(rawVal);
+                  }
+                } else if (vt === 'neg' || vt === 'negative' || vt === 'âm tính' || vt === 'am tinh' || vt === 'không phát hiện' || vt === 'không tìm thấy') {
                   displayVal = 'Âm tính (neg)';
                   isQualitativeNeg = true;
                 } else if (vt === 'pos' || vt === 'positive' || vt === 'dương tính' || vt === 'duong tinh' || vt === '+' || vt === '++' || vt === '+++') {
@@ -329,15 +407,20 @@ export default function DocumentDetailScreen() {
                 }
               }
 
-              // 2. Resolve Unit (Strip machine analyzer models)
+              // 2. Resolve Unit (Strip machine analyzer models and normalize 'fl' -> 'fL')
               let displayUnit = item.unit ? String(item.unit).trim() : '-';
               if (!displayUnit || /mission|bs200|bs-200|analyzer|mayxn/i.test(displayUnit)) {
                 displayUnit = '-';
               }
+              if (displayUnit.toLowerCase() === 'fl') {
+                displayUnit = 'fL';
+              }
 
               // 3. Resolve Reference Range
               let refRange = item.ref_text;
-              if (!refRange || !String(refRange).trim() || refRange === 'Không in') {
+              if (isBloodOrRh) {
+                refRange = item.normalized_code === 'RH' || /\brh\b/i.test(item.name || '') ? '+ / - (Dương/Âm)' : 'Hệ ABO';
+              } else if (!refRange || !String(refRange).trim() || refRange === 'Không in') {
                 if (isQualitativeNeg || isQualitativePos) {
                   refRange = 'Âm tính (-)';
                 } else if (item.ref_low !== null && item.ref_high !== null && item.ref_low !== undefined && item.ref_high !== undefined) {
@@ -348,13 +431,23 @@ export default function DocumentDetailScreen() {
               }
 
               // 4. Resolve Flag
-              const flagUpper = String(item.flag || '').toUpperCase();
-              let isHigh = isQualitativePos || flagUpper === 'HIGH' || flagUpper === 'H';
-              let isLow = flagUpper === 'LOW' || flagUpper === 'L';
-              let isNormal = isQualitativeNeg || flagUpper === 'NORMAL' || flagUpper === 'NORM' || flagUpper === 'N';
+              let isHigh = false;
+              let isLow = false;
+              let isNormal = false;
+              let isNearBorderline = false;
 
-              // Fallback: If DB flag was not set or unknown, evaluate dynamically using value and reference bounds!
-              if (!isHigh && !isLow && !isNormal) {
+              if (isBloodOrRh) {
+                // Nhóm máu và Rh là định danh di truyền, không mang ý nghĩa cao/thấp hay bình thường/bất thường
+                isHigh = false;
+                isLow = false;
+                isNormal = false;
+              } else {
+                const flagUpper = String(item.flag || '').toUpperCase();
+                isHigh = isQualitativePos || flagUpper === 'HIGH' || flagUpper === 'H';
+                isLow = flagUpper === 'LOW' || flagUpper === 'L';
+                isNormal = isQualitativeNeg || flagUpper === 'NORMAL' || flagUpper === 'NORM' || flagUpper === 'N';
+
+                // Fallback: If DB flag was not set or unknown, evaluate dynamically using value and reference bounds!
                 let low = item.ref_low !== undefined && item.ref_low !== null ? Number(item.ref_low) : null;
                 let high = item.ref_high !== undefined && item.ref_high !== null ? Number(item.ref_high) : null;
 
@@ -366,22 +459,47 @@ export default function DocumentDetailScreen() {
 
                 const val = item.value_num !== undefined && item.value_num !== null ? Number(item.value_num) : null;
 
-                if (val !== null && !isNaN(val)) {
-                  if (high !== null && val > high) {
-                    isHigh = true;
-                  } else if (low !== null && val < low) {
-                    isLow = true;
-                  } else if (low !== null || high !== null) {
+                if (!isHigh && !isLow && !isNormal) {
+                  if (val !== null && !isNaN(val)) {
+                    if (high !== null && val > high) {
+                      isHigh = true;
+                    } else if (low !== null && val < low) {
+                      isLow = true;
+                    } else if (low !== null || high !== null) {
+                      isNormal = true;
+                    }
+                  } else if (isQualitativeNeg) {
                     isNormal = true;
+                  } else if (isQualitativePos) {
+                    isHigh = true;
                   }
-                } else if (isQualitativeNeg) {
-                  isNormal = true;
-                } else if (isQualitativePos) {
-                  isHigh = true;
+                }
+
+                // Đánh giá "Sát ngưỡng" nếu giá trị lệch dưới 5% so với ngưỡng
+                if (val !== null && !isNaN(val)) {
+                  if (isHigh && high !== null && high > 0) {
+                    if ((val - high) / high <= 0.05) {
+                      isNearBorderline = true;
+                    }
+                  } else if (isLow && low !== null && low > 0) {
+                    if ((low - val) / low <= 0.05) {
+                      isNearBorderline = true;
+                    }
+                  }
                 }
               }
 
-              const statusText = isHigh ? 'cao hơn mức chuẩn' : isLow ? 'thấp hơn mức chuẩn' : isNormal ? 'ở mức bình thường' : 'chưa xác định';
+              const statusText = isBloodOrRh
+                ? 'thông tin định danh nhóm máu'
+                : isNearBorderline
+                ? 'ở sát ngưỡng tham chiếu'
+                : isHigh
+                ? 'cao hơn mức chuẩn'
+                : isLow
+                ? 'thấp hơn mức chuẩn'
+                : isNormal
+                ? 'ở mức bình thường'
+                : 'chưa xác định';
               const speechRow = `${item.name}: Kết quả là ${displayVal}. ${displayUnit !== '-' ? 'Đơn vị ' + displayUnit + '.' : ''} Khoảng chuẩn là ${refRange}. Trạng thái ${statusText}.`;
 
               return (
@@ -390,7 +508,8 @@ export default function DocumentDetailScreen() {
                   style={[
                     styles.tableRow,
                     idx > 0 && styles.tableRowBorder,
-                    isHigh && styles.rowHighBg,
+                    isHigh && !isNearBorderline && styles.rowHighBg,
+                    isNearBorderline && styles.rowBorderlineBg,
                   ]}
                   activeOpacity={0.7}
                   onPress={() =>
@@ -402,6 +521,8 @@ export default function DocumentDetailScreen() {
                       isHigh,
                       isLow,
                       isNormal,
+                      isBloodOrRh,
+                      isNearBorderline,
                     })
                   }
                 >
@@ -410,7 +531,7 @@ export default function DocumentDetailScreen() {
                       {item.name}
                     </Text>
                     <View style={styles.valueRow}>
-                      <Text style={[styles.indicatorVal, isHigh && styles.textRed]}>
+                      <Text style={[styles.indicatorVal, isHigh && !isNearBorderline && styles.textRed, isNearBorderline && styles.textAmber]}>
                         {displayVal}
                       </Text>
                       {displayUnit !== '-' && (
@@ -425,10 +546,16 @@ export default function DocumentDetailScreen() {
                   </View>
 
                   <View style={styles.rowRight}>
-                    <StatusBadge
-                      flag={isHigh ? 'H' : isLow ? 'L' : isNormal ? 'N' : null}
-                      label={isHigh ? 'CAO' : isLow ? 'THẤP' : isNormal ? 'Bình thường' : 'Chưa rõ'}
-                    />
+                    {isBloodOrRh ? (
+                      <View style={styles.bloodTypeBadge}>
+                        <Text style={styles.bloodTypeBadgeText}>Định danh</Text>
+                      </View>
+                    ) : (
+                      <StatusBadge
+                        flag={isNearBorderline ? 'BORDERLINE' : isHigh ? 'H' : isLow ? 'L' : isNormal ? 'N' : null}
+                        label={isNearBorderline ? 'Sát ngưỡng' : isHigh ? 'CAO' : isLow ? 'THẤP' : isNormal ? 'Bình thường' : 'Chưa rõ'}
+                      />
+                    )}
                     <TTSButton text={speechRow} label="Nghe" compact />
                   </View>
                 </TouchableOpacity>
@@ -633,17 +760,21 @@ export default function DocumentDetailScreen() {
               <View style={styles.modalValCard}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.modalValLabel}>Kết quả đo được</Text>
-                  <Text style={[styles.modalValNum, selectedItem?.isHigh && styles.textRed]}>
+                  <Text style={[styles.modalValNum, selectedItem?.isHigh && !selectedItem?.isNearBorderline && styles.textRed, selectedItem?.isNearBorderline && styles.textAmber]}>
                     {selectedItem?.displayVal} {selectedItem?.displayUnit !== '-' ? selectedItem?.displayUnit : ''}
                   </Text>
                   <Text style={styles.modalRefText}>Khoảng chuẩn: {selectedItem?.refRange}</Text>
                 </View>
-                {selectedItem && (
+                {selectedItem?.isBloodOrRh ? (
+                  <View style={styles.bloodTypeBadge}>
+                    <Text style={styles.bloodTypeBadgeText}>Định danh</Text>
+                  </View>
+                ) : selectedItem ? (
                   <StatusBadge
-                    flag={selectedItem.isHigh ? 'H' : selectedItem.isLow ? 'L' : selectedItem.isNormal ? 'N' : null}
-                    label={selectedItem.isHigh ? 'CAO' : selectedItem.isLow ? 'THẤP' : selectedItem.isNormal ? 'Bình thường' : 'Chưa rõ'}
+                    flag={selectedItem.isNearBorderline ? 'BORDERLINE' : selectedItem.isHigh ? 'H' : selectedItem.isLow ? 'L' : selectedItem.isNormal ? 'N' : null}
+                    label={selectedItem.isNearBorderline ? 'Sát ngưỡng' : selectedItem.isHigh ? 'CAO' : selectedItem.isLow ? 'THẤP' : selectedItem.isNormal ? 'Bình thường' : 'Chưa rõ'}
                   />
-                )}
+                ) : null}
               </View>
 
               {/* Detailed Explanation */}
@@ -896,6 +1027,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 12,
   },
+  rowBorderlineBg: {
+    backgroundColor: 'rgba(254, 243, 199, 0.4)',
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  bloodTypeBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+  },
+  bloodTypeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0F766E',
+  },
   indicatorName: {
     fontSize: 14,
     fontWeight: '800',
@@ -914,6 +1065,9 @@ const styles = StyleSheet.create({
   },
   textRed: {
     color: Colors.highText,
+  },
+  textAmber: {
+    color: '#B45309',
   },
   indicatorUnit: {
     fontSize: 12,
