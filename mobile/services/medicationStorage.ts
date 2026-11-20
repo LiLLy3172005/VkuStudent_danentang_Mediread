@@ -13,32 +13,7 @@ export interface DoseItem {
 
 const MEDICATION_SCHEDULE_KEY = 'mediread_medication_schedule';
 
-export const DEFAULT_DOSES: DoseItem[] = [
-  {
-    id: 'demo-1',
-    name: 'Metformin 500mg',
-    dosage: '1 viên',
-    timeSlot: 'morning',
-    instructions: 'Uống ngay sau khi ăn sáng',
-    taken: true,
-  },
-  {
-    id: 'demo-2',
-    name: 'Amlodipine 5mg',
-    dosage: '1 viên',
-    timeSlot: 'morning',
-    instructions: 'Uống định kỳ vào buổi sáng để kiểm soát huyết áp',
-    taken: true,
-  },
-  {
-    id: 'demo-3',
-    name: 'Atorvastatin 20mg',
-    dosage: '1 viên',
-    timeSlot: 'evening',
-    instructions: 'Uống trước khi đi ngủ 30 phút để giảm mỡ máu',
-    taken: false,
-  },
-];
+export const DEFAULT_DOSES: DoseItem[] = [];
 
 export const getMedicationSchedule = async (): Promise<DoseItem[]> => {
   try {
@@ -46,7 +21,7 @@ export const getMedicationSchedule = async (): Promise<DoseItem[]> => {
       const raw = await SecureStore.getItemAsync(MEDICATION_SCHEDULE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -54,7 +29,17 @@ export const getMedicationSchedule = async (): Promise<DoseItem[]> => {
   } catch (e) {
     console.warn('Failed to load medication schedule:', e);
   }
-  return DEFAULT_DOSES;
+  return [];
+};
+
+export const clearMedicationSchedule = async (): Promise<void> => {
+  try {
+    if (Platform.OS !== 'web') {
+      await SecureStore.deleteItemAsync(MEDICATION_SCHEDULE_KEY);
+    }
+  } catch (e) {
+    console.warn('Failed to clear medication schedule:', e);
+  }
 };
 
 export const saveMedicationSchedule = async (items: DoseItem[]): Promise<void> => {

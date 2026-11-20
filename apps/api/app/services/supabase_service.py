@@ -436,14 +436,29 @@ class SupabaseService:
                 if links:
                     for l in links:
                         try:
-                            if "patient_name" not in l or not l.get("patient_name"):
-                                p_res = self._client.table("profiles").select("full_name").eq("id", l["patient_id"]).execute()
-                                if p_res.data:
-                                    l["patient_name"] = p_res.data[0].get("full_name")
-                            if "caregiver_name" not in l or not l.get("caregiver_name"):
-                                c_res = self._client.table("profiles").select("full_name").eq("id", l["caregiver_id"]).execute()
-                                if c_res.data:
-                                    l["caregiver_name"] = c_res.data[0].get("full_name")
+                            p_res = self._client.table("profiles").select("full_name, phone, role").eq("id", l["patient_id"]).execute()
+                            if p_res.data:
+                                l["patient_name"] = p_res.data[0].get("full_name")
+                                l["patient_phone"] = p_res.data[0].get("phone")
+                            if not l.get("patient_phone"):
+                                try:
+                                    cred_p = self._client.table("user_credentials").select("phone").eq("user_id", l["patient_id"]).execute()
+                                    if cred_p.data:
+                                        l["patient_phone"] = cred_p.data[0].get("phone")
+                                except Exception:
+                                    pass
+
+                            c_res = self._client.table("profiles").select("full_name, phone, role").eq("id", l["caregiver_id"]).execute()
+                            if c_res.data:
+                                l["caregiver_name"] = c_res.data[0].get("full_name")
+                                l["caregiver_phone"] = c_res.data[0].get("phone")
+                            if not l.get("caregiver_phone"):
+                                try:
+                                    cred_c = self._client.table("user_credentials").select("phone").eq("user_id", l["caregiver_id"]).execute()
+                                    if cred_c.data:
+                                        l["caregiver_phone"] = cred_c.data[0].get("phone")
+                                except Exception:
+                                    pass
                         except Exception:
                             pass
                     return links

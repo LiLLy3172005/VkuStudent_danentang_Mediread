@@ -34,6 +34,9 @@ import {
   ArrowRight,
   Sparkles,
   Calendar,
+  Phone,
+  Trash2,
+  UserX,
 } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
@@ -139,6 +142,56 @@ export default function CaregiverScreen() {
       setLoadingPatientDocs(false);
     }
   };
+
+  const handleRevokeLink = (linkId: string, name?: string) => {
+    Alert.alert(
+      'Hủy liên kết',
+      `Bác/Bạn có chắc chắn muốn hủy liên kết với ${name || 'người thân này'} không? Quyền xem hồ sơ sẽ tạm thời bị ngắt.`,
+      [
+        { text: 'Đóng', style: 'cancel' },
+        {
+          text: 'Hủy liên kết',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.revokeCareLink(linkId);
+              Alert.alert('Thành công', 'Đã hủy liên kết thành công.');
+              await loadLinks();
+            } catch (e: any) {
+              Alert.alert('Lỗi', e.message || 'Không thể hủy liên kết.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteLink = (linkId: string, name?: string) => {
+    Alert.alert(
+      'Xóa người thân khỏi danh sách',
+      `Bác/Bạn có chắc chắn muốn xóa hoàn toàn ${name || 'người thân này'} khỏi danh sách kết nối không? Dữ liệu liên kết sẽ bị xóa vĩnh viễn.`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa vĩnh viễn',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteCareLink(linkId);
+              Alert.alert('Đã xóa', 'Đã xóa người thân khỏi danh sách liên kết.');
+              await loadLinks();
+            } catch (e: any) {
+              Alert.alert('Lỗi', e.message || 'Không thể xóa liên kết.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Filter links based on current user's role and ID
+  const myCaregivers = links.filter((l) => l.patient_id === user?.id);
+  const caringFor = links.filter((l) => l.caregiver_id === user?.id);
 
   const mySpeechGuide = `Mã kết nối của bác là ${userCode.split('').join(' ')}. Bác hãy đưa màn hình này cho con cái quét mã QR để con cái có thể theo dõi kết quả xét nghiệm và nhắc nhở uống thuốc từ xa.`;
 
@@ -248,7 +301,7 @@ export default function CaregiverScreen() {
 
             {loading ? (
               <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 16 }} />
-            ) : links.length === 0 ? (
+            ) : myCaregivers.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>Chưa có người thân nào kết nối</Text>
                 <Text style={styles.emptyDesc}>
@@ -256,23 +309,54 @@ export default function CaregiverScreen() {
                 </Text>
               </View>
             ) : (
-              links.map((link) => (
-                <View key={link.id} style={styles.memberCard}>
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.memberAvatarText}>
-                      {link.caregiver_name ? link.caregiver_name.charAt(0).toUpperCase() : 'C'}
-                    </Text>
+              myCaregivers.map((link) => {
+                const displayName = link.caregiver_name || 'Con cái / Người chăm sóc';
+                const phoneText = link.caregiver_phone || 'Chưa cập nhật SĐT';
+                const isRevoked = link.status === 'revoked';
+                return (
+                  <View key={link.id} style={styles.memberCard}>
+                    <View style={styles.memberCardTop}>
+                      <View style={styles.memberAvatar}>
+                        <Text style={styles.memberAvatarText}>
+                          {displayName.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.memberName} numberOfLines={1}>{displayName}</Text>
+                        <Text style={styles.memberPhone} numberOfLines={1}>📞 {phoneText}</Text>
+                        <Text style={styles.memberRole} numberOfLines={1}>Quyền xem: Phiếu khám & Lịch uống thuốc</Text>
+                      </View>
+                      <View style={[styles.statusBadge, isRevoked && styles.statusBadgeRevoked]}>
+                        <CheckCircle2 size={13} color={isRevoked ? '#DC2626' : '#15803D'} style={{ flexShrink: 0 }} />
+                        <Text style={[styles.statusBadgeText, isRevoked && { color: '#DC2626' }]}>
+                          {isRevoked ? 'Đã hủy' : 'Đang kết nối'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.linkActionRow}>
+                      {!isRevoked && (
+                        <TouchableOpacity
+                          style={styles.revokeBtn}
+                          onPress={() => handleRevokeLink(link.id, displayName)}
+                          activeOpacity={0.7}
+                        >
+                          <UserX size={14} color="#C2410C" />
+                          <Text style={styles.revokeBtnText}>Hủy liên kết</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={styles.deleteLinkBtn}
+                        onPress={() => handleDeleteLink(link.id, displayName)}
+                        activeOpacity={0.7}
+                      >
+                        <Trash2 size={14} color="#DC2626" />
+                        <Text style={styles.deleteLinkBtnText}>Xóa người thân</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.memberName} numberOfLines={1}>{link.caregiver_name || 'Con cái / Người chăm sóc'}</Text>
-                    <Text style={styles.memberRole} numberOfLines={2}>Quyền xem: Phiếu khám & Lịch uống thuốc</Text>
-                  </View>
-                  <View style={styles.statusBadge}>
-                    <CheckCircle2 size={13} color="#15803D" style={{ flexShrink: 0 }} />
-                    <Text style={styles.statusBadgeText}>Đã kết nối</Text>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         ) : (
@@ -340,7 +424,7 @@ export default function CaregiverScreen() {
 
             {loading ? (
               <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 16 }} />
-            ) : links.length === 0 ? (
+            ) : caringFor.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>Chưa kết nối với người thân nào</Text>
                 <Text style={styles.emptyDesc}>
@@ -348,8 +432,10 @@ export default function CaregiverScreen() {
                 </Text>
               </View>
             ) : (
-              links.map((link) => {
-                const displayName = link.patient_name || 'Bác Trần Văn Minh (Bệnh nhân)';
+              caringFor.map((link) => {
+                const displayName = link.patient_name || 'Hồ sơ người thân';
+                const phoneText = link.patient_phone || 'Chưa cập nhật SĐT';
+                const isRevoked = link.status === 'revoked';
                 return (
                   <View key={link.id} style={styles.patientLinkCard}>
                     <View style={styles.patientLinkTop}>
@@ -360,25 +446,53 @@ export default function CaregiverScreen() {
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.memberName} numberOfLines={1}>{displayName}</Text>
-                        <Text style={styles.memberRole} numberOfLines={2}>Trạng thái: Đã cấp quyền theo dõi hồ sơ</Text>
+                        <Text style={styles.memberPhone} numberOfLines={1}>📞 {phoneText}</Text>
+                        <Text style={styles.memberRole} numberOfLines={1}>
+                          {isRevoked ? 'Trạng thái: Đã tạm ngắt kết nối' : 'Trạng thái: Đang theo dõi hồ sơ y tế'}
+                        </Text>
                       </View>
-                      <View style={styles.statusBadge}>
-                        <CheckCircle2 size={13} color="#15803D" style={{ flexShrink: 0 }} />
-                        <Text style={styles.statusBadgeText}>Hoạt động</Text>
+                      <View style={[styles.statusBadge, isRevoked && styles.statusBadgeRevoked]}>
+                        <CheckCircle2 size={13} color={isRevoked ? '#DC2626' : '#15803D'} style={{ flexShrink: 0 }} />
+                        <Text style={[styles.statusBadgeText, isRevoked && { color: '#DC2626' }]}>
+                          {isRevoked ? 'Đã hủy' : 'Hoạt động'}
+                        </Text>
                       </View>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.viewDocsBtn}
-                      onPress={() => handleViewPatientDocs(link.patient_id, displayName)}
-                      activeOpacity={0.8}
-                    >
-                      <FileText size={16} color="#FFFFFF" style={{ flexShrink: 0 }} />
-                      <Text style={styles.viewDocsBtnText} numberOfLines={2}>
-                        Xem Kết Quả Xét Nghiệm & Đơn Thuốc
-                      </Text>
-                      <ChevronRight size={16} color="#FFFFFF" style={{ flexShrink: 0 }} />
-                    </TouchableOpacity>
+                    {!isRevoked && (
+                      <TouchableOpacity
+                        style={styles.viewDocsBtn}
+                        onPress={() => handleViewPatientDocs(link.patient_id, displayName)}
+                        activeOpacity={0.8}
+                      >
+                        <FileText size={16} color="#FFFFFF" style={{ flexShrink: 0 }} />
+                        <Text style={styles.viewDocsBtnText} numberOfLines={2}>
+                          Xem Kết Quả Xét Nghiệm & Đơn Thuốc Của Cụ
+                        </Text>
+                        <ChevronRight size={16} color="#FFFFFF" style={{ flexShrink: 0 }} />
+                      </TouchableOpacity>
+                    )}
+
+                    <View style={styles.linkActionRow}>
+                      {!isRevoked && (
+                        <TouchableOpacity
+                          style={styles.revokeBtn}
+                          onPress={() => handleRevokeLink(link.id, displayName)}
+                          activeOpacity={0.7}
+                        >
+                          <UserX size={14} color="#C2410C" />
+                          <Text style={styles.revokeBtnText}>Hủy liên kết</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={styles.deleteLinkBtn}
+                        onPress={() => handleDeleteLink(link.id, displayName)}
+                        activeOpacity={0.7}
+                      >
+                        <Trash2 size={14} color="#DC2626" />
+                        <Text style={styles.deleteLinkBtnText}>Xóa người thân</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 );
               })
@@ -775,14 +889,68 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   memberCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 14,
     borderWidth: 1.5,
     borderColor: Colors.border,
     gap: 10,
+  },
+  memberCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  memberPhone: {
+    fontSize: 13,
+    color: Colors.primaryDark,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  linkActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  revokeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  revokeBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C2410C',
+  },
+  deleteLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.25)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  deleteLinkBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  statusBadgeRevoked: {
+    backgroundColor: '#FEE2E2',
   },
   patientLinkCard: {
     backgroundColor: '#FFFFFF',

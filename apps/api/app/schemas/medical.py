@@ -94,8 +94,10 @@ class CareLinkItem(BaseModel):
     id: uuid.UUID
     patient_id: uuid.UUID
     patient_name: Optional[str] = None
+    patient_phone: Optional[str] = None
     caregiver_id: uuid.UUID
     caregiver_name: Optional[str] = None
+    caregiver_phone: Optional[str] = None
     status: Literal["pending", "accepted", "revoked"]
     created_at: datetime
 

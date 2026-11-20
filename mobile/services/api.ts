@@ -337,6 +337,18 @@ class ApiService {
     });
   }
 
+  async deleteCareLink(linkId: string): Promise<any> {
+    return this.request(`/api/v1/care-links/${linkId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteAccount(userId: string): Promise<any> {
+    return this.request(`/api/v1/auth/accounts/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async listPatientDocuments(patientId: string): Promise<DocumentSummary[]> {
     try {
       return await this.request<DocumentSummary[]>(`/api/v1/documents?patient_id=${patientId}`);

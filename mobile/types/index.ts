@@ -1,6 +1,8 @@
 export interface Profile {
   id: string;
   full_name: string;
+  phone?: string;
+  email?: string;
   sex?: 'nam' | 'nu' | 'other';
   birth_year?: number;
   role: 'patient' | 'caregiver';
@@ -82,6 +84,8 @@ export interface CareLink {
   caregiver_id: string;
   status: 'pending' | 'accepted' | 'revoked';
   patient_name?: string;
+  patient_phone?: string;
   caregiver_name?: string;
+  caregiver_phone?: string;
   created_at: string;
 }

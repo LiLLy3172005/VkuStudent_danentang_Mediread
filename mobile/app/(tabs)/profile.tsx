@@ -13,6 +13,7 @@ import { Colors } from '../../theme/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePreferences } from '../../contexts/PreferencesContext';
 import { HeaderBar } from '../../components/common/HeaderBar';
+import { api } from '../../services/api';
 import {
   User,
   Users,
@@ -22,6 +23,8 @@ import {
   ShieldCheck,
   ChevronRight,
   Info,
+  Trash2,
+  Phone,
 } from 'lucide-react-native';
 
 export default function ProfileScreen() {
@@ -41,6 +44,31 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Cảnh báo xóa vĩnh viễn tài khoản',
+      'Tất cả hồ sơ y tế, phiếu xét nghiệm, lịch uống thuốc và liên kết người thân của bác/bạn sẽ bị xóa hoàn toàn khỏi hệ thống và không thể khôi phục.\n\nBác/Bạn có chắc chắn muốn xóa tài khoản này không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa vĩnh viễn',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user?.id) return;
+            try {
+              await api.deleteAccount(user.id);
+              await logout();
+              Alert.alert('Đã xóa tài khoản', 'Tài khoản của bạn đã được xóa thành công khỏi hệ thống.');
+              router.replace('/(auth)/login' as any);
+            } catch (e: any) {
+              Alert.alert('Lỗi', e.message || 'Không thể xóa tài khoản. Vui lòng thử lại sau.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -69,6 +97,34 @@ export default function ProfileScreen() {
             <Text style={styles.verifiedText}>
               Dữ liệu y tế mã hóa an toàn trên Supabase
             </Text>
+          </View>
+
+          {/* User Registration Details */}
+          <View style={styles.infoTable}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Số điện thoại:</Text>
+              <Text style={styles.infoValue}>{user?.phone || 'Chưa cập nhật'}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Năm sinh & Tuổi:</Text>
+              <Text style={styles.infoValue}>
+                {user?.birth_year
+                  ? `${user.birth_year} (${new Date().getFullYear() - user.birth_year} tuổi)`
+                  : 'Chưa cập nhật'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Giới tính:</Text>
+              <Text style={styles.infoValue}>
+                {user?.sex === 'nam' ? 'Nam' : user?.sex === 'nu' ? 'Nữ' : 'Chưa cập nhật'}
+              </Text>
+            </View>
+            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.infoLabel}>Vai trò tài khoản:</Text>
+              <Text style={styles.infoValue}>
+                {user?.role === 'caregiver' ? 'Người thân / Chăm sóc' : 'Bệnh nhân'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -183,6 +239,14 @@ export default function ProfileScreen() {
           <LogOut size={18} color="#DC2626" style={{ flexShrink: 0 }} />
           <Text style={styles.logoutBtnText}>
             Đăng Xuất Tài Khoản
+          </Text>
+        </TouchableOpacity>
+
+        {/* Delete Account Button */}
+        <TouchableOpacity style={styles.deleteAccountBtn} onPress={handleDeleteAccount} activeOpacity={0.8}>
+          <Trash2 size={18} color="#DC2626" style={{ flexShrink: 0 }} />
+          <Text style={styles.deleteAccountBtnText}>
+            Xóa Vĩnh Viễn Tài Khoản
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -348,6 +412,51 @@ const styles = StyleSheet.create({
   },
   logoutBtnText: {
     fontSize: 15,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  infoTable: {
+    width: '100%',
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginTop: 10,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  infoValue: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: Colors.primaryDark,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#DC2626',
+    marginTop: -4,
+  },
+  deleteAccountBtnText: {
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#DC2626',
   },

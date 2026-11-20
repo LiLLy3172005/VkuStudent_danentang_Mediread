@@ -117,7 +117,8 @@ export default function AiChatScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 25}
       >
         <ScrollView
           ref={scrollViewRef}
@@ -214,6 +215,11 @@ export default function AiChatScreen() {
             placeholderTextColor={Colors.textSubtle}
             value={inputText}
             onChangeText={setInputText}
+            onFocus={() => {
+              setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 200);
+            }}
             multiline={false}
             returnKeyType="send"
             onSubmitEditing={handleSend}

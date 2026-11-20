@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { AppText as Text } from '../../components/common/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Colors } from '../../theme/colors';
 import { HeaderBar } from '../../components/common/HeaderBar';
 import { TTSButton } from '../../components/common/TTSButton';
@@ -33,16 +34,19 @@ import {
   Volume2,
   CheckCircle2,
   Trash2,
+  Camera,
 } from 'lucide-react-native';
 import {
   DoseItem,
   getMedicationSchedule,
   saveMedicationSchedule,
+  clearMedicationSchedule,
   DEFAULT_DOSES,
 } from '../../services/medicationStorage';
 import { speechService } from '../../services/speech';
 
 export default function MedicationScreen() {
+  const router = useRouter();
   const [doses, setDoses] = useState<DoseItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [now, setNow] = useState<Date>(new Date());
@@ -99,6 +103,25 @@ export default function MedicationScreen() {
             const reset = doses.map((d) => ({ ...d, taken: false }));
             setDoses(reset);
             await saveMedicationSchedule(reset);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClearAllMedications = () => {
+    Alert.alert(
+      'Xóa toàn bộ lịch uống thuốc',
+      'Bác có chắc chắn muốn xóa toàn bộ danh sách thuốc đang có trong lịch không? Hành động này không thể hoàn tác.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa tất cả',
+          style: 'destructive',
+          onPress: async () => {
+            setDoses([]);
+            await clearMedicationSchedule();
+            await saveMedicationSchedule([]);
           },
         },
       ]
@@ -312,6 +335,13 @@ export default function MedicationScreen() {
             <RotateCcw size={15} color={Colors.primary} />
             <Text style={styles.resetBtnText} numberOfLines={1}>Ngày mới</Text>
           </TouchableOpacity>
+
+          {doses.length > 0 && (
+            <TouchableOpacity style={styles.clearAllBtn} onPress={handleClearAllMedications} activeOpacity={0.7}>
+              <Trash2 size={15} color="#DC2626" />
+              <Text style={styles.clearAllBtnText} numberOfLines={1}>Xóa tất cả</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Morning Dose Section */}
@@ -430,13 +460,11 @@ export default function MedicationScreen() {
                 <Text style={styles.addMedBtnText}>Thêm thuốc mới</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.restoreBtn}
-                onPress={async () => {
-                  setDoses(DEFAULT_DOSES);
-                  await saveMedicationSchedule(DEFAULT_DOSES);
-                }}
+                style={styles.scanPrescriptionBtn}
+                onPress={() => router.push('/scan' as any)}
               >
-                <Text style={styles.restoreBtnText}>Tải lịch mẫu</Text>
+                <Camera size={18} color={Colors.primaryDark} />
+                <Text style={styles.scanPrescriptionBtnText}>Quét đơn thuốc</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -783,19 +811,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
   clockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     backgroundColor: Colors.primaryPale,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
     borderRadius: 10,
-    flexShrink: 1,
   },
   clockText: {
     fontSize: 13,
@@ -805,17 +833,16 @@ const styles = StyleSheet.create({
   testAlarmBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     backgroundColor: Colors.primary,
-    paddingVertical: 6,
-    paddingHorizontal: 11,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     borderRadius: 10,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 2,
-    flexShrink: 0,
   },
   testAlarmBtnText: {
     fontSize: 12.5,
@@ -885,23 +912,25 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    flexWrap: 'wrap',
   },
   addMedBtn: {
     flex: 1,
+    minWidth: 130,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     backgroundColor: Colors.primary,
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: 14,
     borderRadius: 14,
     minHeight: 46,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
     elevation: 2,
   },
   addMedBtnSmall: {
@@ -922,20 +951,55 @@ const styles = StyleSheet.create({
   resetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    backgroundColor: Colors.surface,
-    paddingVertical: 10,
+    backgroundColor: Colors.primaryPale,
+    paddingVertical: 11,
     paddingHorizontal: 14,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
     minHeight: 46,
-    flexShrink: 0,
   },
   resetBtnText: {
     fontSize: 13,
     fontWeight: '700',
     color: Colors.primaryDark,
+  },
+  clearAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.25)',
+    minHeight: 46,
+  },
+  clearAllBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  scanPrescriptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.primaryPale,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  scanPrescriptionBtnText: {
+    color: Colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '700',
   },
   timeSlotBox: {
     backgroundColor: '#FFFFFF',

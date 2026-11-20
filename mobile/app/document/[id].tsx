@@ -100,7 +100,7 @@ export default function DocumentDetailScreen() {
       return eName.includes(target) || target.includes(eName) || (itemCode && eName.includes(itemCode.toLowerCase()));
     });
     if (found && (found.explanation || found.content)) {
-      let exp = found.explanation || found.content;
+      let exp = found.explanation || found.content || '';
       // Lọc bỏ câu hỏi nội bộ lọt vào đầu (như "Chỉ số ... là gì?")
       exp = exp.replace(/^(?:(?:chào\s+)?(?:bạn|bác)(?:\s*sĩ)?\s*[:,-]?\s*)?[^.?!:\n]+là gì\s*(?:và[^.?!:\n]+)?\?+\s*/i, '');
       return exp.trim();
