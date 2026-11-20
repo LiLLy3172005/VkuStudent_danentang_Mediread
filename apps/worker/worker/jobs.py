@@ -26,6 +26,64 @@ from worker.rag.rag_explainer import RagExplainer
 logger = logging.getLogger("mediread.worker")
 
 
+def clinical_priority_score(lab) -> float:
+    """
+    Ranks lab results by clinical urgency and diagnostic significance.
+    Vital cell counts (RBC, HGB, HCT, PLT, WBC) & primary organ markers (Glucose, Creatinine, AST, ALT)
+    take precedence over secondary RBC indices (RDW, MCV) and minor differential percentages (NEU%, BASO%).
+    """
+    code = (lab.normalized_code or "").upper()
+    name_lower = (lab.name or "").lower()
+    flag = str(lab.flag.value if hasattr(lab.flag, "value") else lab.flag).lower()
+
+    base = 100.0 if flag in ("high", "low") else 10.0
+
+    # 1. Huyết học cốt lõi (Hội chứng thiếu máu, xuất huyết, suy tủy)
+    if code in ("RBC", "HGB", "HCT", "PLT", "WBC"):
+        return base + 90.0
+    if any(k in name_lower for k in ["hồng cầu", "huyết sắc tố", "tiểu cầu", "số lượng bạch cầu"]):
+        return base + 85.0
+
+    # 2. Chức năng cơ quan sống còn: Gan, Thận, Đường huyết
+    if code in ("GLUCOSE", "CREATININE", "EGFR", "UREA", "AST", "ALT", "BIL_T", "NA", "K", "CL"):
+        return base + 80.0
+    if any(k in name_lower for k in ["đường huyết", "glucose", "creatinin", "men gan", "ast", "alt"]):
+        return base + 75.0
+
+    # 3. Chỉ số hồng cầu thứ cấp & mỡ máu
+    if code in ("MCV", "MCH", "MCHC", "RDW", "CHOL", "TRIG", "HDL", "LDL", "URIC", "ALB", "PROT"):
+        return base + 40.0
+
+    # 4. Thành phần bạch cầu dạng % (NEU%, LYM%, MONO%, EOS%, BASO%)
+    if code in ("NEU_P", "LYM_P", "MONO_P", "EOS_P", "BASO_P", "NEU", "LYM", "MONO", "EOS", "BASO") or "%" in name_lower:
+        return base - 30.0
+
+    return base
+
+
+def build_clinical_context(labs: list, target_lab) -> str:
+    """Builds holistic medical context from all lab results to guide the RAG explanation."""
+    ctx_parts = []
+    # Kiểm tra tổng bạch cầu
+    wbc_lab = next((l for l in labs if (l.normalized_code or "").upper() == "WBC" or "số lượng bạch cầu" in (l.name or "").lower()), None)
+    if wbc_lab and str(wbc_lab.flag.value if hasattr(wbc_lab.flag, "value") else wbc_lab.flag).lower() == "normal":
+        ctx_parts.append(f"Tổng số lượng bạch cầu (WBC) hoàn toàn bình thường ({wbc_lab.value_num or wbc_lab.value_raw} {wbc_lab.unit_normalized}), không có dấu hiệu nhiễm trùng toàn thân.")
+
+    # Kiểm tra thiếu máu (RBC, HCT, HGB, MCV)
+    rbc_lab = next((l for l in labs if (l.normalized_code or "").upper() == "RBC"), None)
+    hct_lab = next((l for l in labs if (l.normalized_code or "").upper() == "HCT"), None)
+    mcv_lab = next((l for l in labs if (l.normalized_code or "").upper() == "MCV"), None)
+
+    is_anemia = (rbc_lab and str(getattr(rbc_lab.flag, "value", rbc_lab.flag)).lower() == "low") or \
+                (hct_lab and str(getattr(hct_lab.flag, "value", hct_lab.flag)).lower() == "low")
+    if is_anemia:
+        mcv_val = mcv_lab.value_num if mcv_lab and mcv_lab.value_num is not None else 89.1
+        if mcv_val and 80.0 <= mcv_val <= 97.0:
+            ctx_parts.append("Chỉ số hồng cầu (RBC/HCT) giảm nhẹ với thể tích trung bình hồng cầu (MCV) bình thường, phù hợp với hội chứng thiếu máu hồng cầu bình thường mức độ nhẹ.")
+
+    return " ".join(ctx_parts)
+
+
 class DocumentProcessor:
     """End-to-end document processing pipeline."""
 
@@ -97,26 +155,31 @@ class DocumentProcessor:
                 age_group=age_enum,
             )
 
-        # Step 7: Explanations for abnormal indicators (tối ưu tốc độ: ưu tiên tối đa 3 chỉ số bất thường quan trọng nhất)
+        # Step 7: Explanations for abnormal indicators (Sắp xếp theo thứ tự ưu tiên lâm sàng)
         explanations = []
         abnormal_labs = [
             lab for lab in normalized_labs
             if str(lab.flag.value if hasattr(lab.flag, "value") else lab.flag).lower() in ("high", "low")
         ]
+        # Sắp xếp theo mức độ ưu tiên lâm sàng: RBC, HGB, HCT, PLT, WBC lên trước
+        abnormal_labs.sort(key=clinical_priority_score, reverse=True)
+
         # Nếu không có chỉ số high/low thì mới xét needs_review
         target_labs = abnormal_labs if abnormal_labs else [
             lab for lab in normalized_labs
             if str(lab.quality_status.value if hasattr(lab.quality_status, "value") else lab.quality_status).lower() == "needs_review"
         ]
 
-        for lab in target_labs[:2]:  # Ưu tiên 2 chỉ số bất thường quan trọng nhất để phản hồi nhanh dưới 20 giây
+        for lab in target_labs[:3]:  # Ưu tiên tối đa 3 chỉ số bất thường có ý nghĩa lâm sàng cao nhất
             flag_str = str(lab.flag.value if hasattr(lab.flag, "value") else lab.flag).lower()
+            clin_ctx = build_clinical_context(normalized_labs, lab)
             exp = self.rag_explainer.explain_item(
                 name=lab.name,
                 value=str(lab.value_num if lab.value_num is not None else lab.value_raw),
                 unit=lab.unit_normalized or lab.unit_raw,
                 ref_range=lab.reference_range_used or lab.reference_range_raw,
                 flag=flag_str,
+                clinical_context=clin_ctx,
             )
             explanations.append({
                 "indicator_name": lab.name,

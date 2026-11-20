@@ -42,11 +42,16 @@ Nhiệm vụ: Trích xuất các chỉ số xét nghiệm và trả về DUY NH�
 }}
 
 QUY TẮC BẮT BUỘC:
-1. "value" chỉ là SỐ ĐO kết quả của bệnh nhân. Tuyệt đối không chép khoảng tham chiếu vào "value".
-2. Nếu dòng chỉ có tên và khoảng chuẩn mà chưa có số đo, để "value" là "".
-3. "flag": Nếu có dấu H, *, hoặc chữ 'Cao', đặt "high". Nếu có dấu L hoặc chữ 'Thấp', đặt "low". Nếu có chữ 'Bình thường' hoặc trong ngưỡng rõ ràng, đặt "normal". Nếu không chắc chắn, đặt "unknown".
-4. "name": Phục hồi dấu tiếng Việt chuẩn và chính xác cho tên xét nghiệm (ví dụ: 'WBC' -> 'Số lượng bạch cầu (WBC)', 'RBC' -> 'Số lượng hồng cầu (RBC)', 'PLT' -> 'Số lượng tiểu cầu (PLT)', 'HGB' -> 'Huyết sắc tố (HGB)', 'HCT' -> 'Dung tích hồng cầu (HCT)', 'MCV' -> 'Thể tích trung bình hồng cầu (MCV)', 'MCH' -> 'Lượng huyết sắc tố trung bình hồng cầu (MCH)', 'MCHC' -> 'Nồng độ huyết sắc tố trung bình hồng cầu (MCHC)', 'RDW' -> 'Độ phân bố kích thước hồng cầu (RDW)', 'MPV' -> 'Thể tích trung bình tiểu cầu (MPV)', 'Glucose' -> 'Đường huyết (Glucose)', 'Albumin' -> 'Định lượng Albumin', 'Protein' -> 'Protein toàn phần'). Tuyệt đối giữ đúng mã viết tắt gốc trong ngoặc đơn, không nhầm lẫn giữa HGB, MCH và MCHC.
-5. Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích.
+1. "value" là kết quả của bệnh nhân:
+   - Đối với chỉ số định lượng: chỉ ghi SỐ ĐO (ví dụ: "9.84", "12.5", "3.92"). Tuyệt đối không chép khoảng tham chiếu vào "value".
+   - Đối với xét nghiệm định tính / nhóm máu: ghi giá trị chữ hoặc ký hiệu (ví dụ: "A", "B", "AB", "O", "+", "-", "Dương tính", "Âm tính"). Bắt buộc phải trích xuất đầy đủ các dòng Nhóm máu và Rh nếu có trên phiếu!
+2. Nếu dòng chỉ có tên và khoảng chuẩn mà chưa có số đo hay kết quả, để "value" là "".
+3. "flag": Nếu có dấu H, *, hoặc chữ 'Cao', đặt "high". Nếu có dấu L hoặc chữ 'Thấp', đặt "low". Nếu có chữ 'Bình thường' hoặc trong ngưỡng rõ ràng (hoặc là nhóm máu, Rh bình thường), đặt "normal". Nếu không chắc chắn, đặt "unknown".
+4. "name": Phục hồi dấu tiếng Việt chuẩn và chính xác cho tên xét nghiệm (ví dụ: 'WBC' -> 'Số lượng bạch cầu (WBC)', 'RBC' -> 'Số lượng hồng cầu (RBC)', 'PLT' -> 'Số lượng tiểu cầu (PLT)', 'HGB' -> 'Huyết sắc tố (HGB)', 'HCT' -> 'Dung tích hồng cầu (HCT)', 'MCV' -> 'Thể tích trung bình hồng cầu (MCV)', 'MCH' -> 'Lượng huyết sắc tố trung bình hồng cầu (MCH)', 'MCHC' -> 'Nồng độ huyết sắc tố trung bình hồng cầu (MCHC)', 'RDW' -> 'Độ phân bố kích thước hồng cầu (RDW)', 'MPV' -> 'Thể tích trung bình tiểu cầu (MPV)', 'Glucose' -> 'Đường huyết (Glucose)', 'Albumin' -> 'Định lượng Albumin', 'Protein' -> 'Protein toàn phần', 'Nhóm máu' -> 'Nhóm máu hệ ABO', 'Rh' -> 'Yếu tố Rhesus (Rh)'). Tuyệt đối giữ đúng mã viết tắt gốc trong ngoặc đơn, không nhầm lẫn giữa HGB, MCH và MCHC.
+5. "unit" và "reference_range": Nhận diện và sửa các lỗi OCR thường gặp:
+   - Đơn vị: nếu OCR đọc nhầm '2/dL' -> 'g/dL', 'P8' -> 'pg', 'GN'/'&M'/'%B'/'%E' -> '%', 'IL'/'fi' -> 'fL'.
+   - Khoảng tham chiếu: nếu OCR dính dấu chấm thành '11.5.14.5' -> sửa thành '11.5 - 14.5'; nếu '0.7' hoặc '(0.7)' -> sửa thành '0 - 7'.
+6. Chỉ trả về JSON thuần túy, không có thẻ markdown ```json, không giải thích.
 """
 
 EXTRACT_PRESCRIPTION_PROMPT = """Bạn là trợ lý trích xuất đơn thuốc y khoa.

@@ -90,11 +90,23 @@ class TestNumberAndUnitParsing(unittest.TestCase):
         self.assertEqual(clean_unit("109/L"), "10^9/L")
         self.assertEqual(clean_unit("G/l"), "G/L")
         self.assertEqual(clean_unit("fi"), "fL")
+        # Hematology OCR mistranscriptions
+        self.assertEqual(clean_unit("2/dL"), "g/dL")
+        self.assertEqual(clean_unit("P8"), "pg")
+        self.assertEqual(clean_unit("GN"), "%")
+        self.assertEqual(clean_unit("&M"), "%")
+        self.assertEqual(clean_unit("%B"), "%")
+        self.assertEqual(clean_unit("IL"), "fL")
 
     def test_parse_range_bounds(self):
         # Two-sided range
         self.assertEqual(parse_range_bounds("3.9 - 6.4"), (3.9, 6.4))
         self.assertEqual(parse_range_bounds("3,9 - 5,2"), (3.9, 5.2))
+        # OCR dot typos
+        self.assertEqual(parse_range_bounds("11.5.14.5"), (11.5, 14.5))
+        self.assertEqual(parse_range_bounds("(11.5.14.5)"), (11.5, 14.5))
+        self.assertEqual(parse_range_bounds("(0.7)"), (0.0, 7.0))
+        self.assertEqual(parse_range_bounds("(31.36)"), (31.0, 36.0))
 
         # Upper bound only (< or <=)
         self.assertEqual(parse_range_bounds("< 5.2"), (None, 5.2))
@@ -171,6 +183,43 @@ class TestFlagAndProvenanceSafety(unittest.TestCase):
         self.assertEqual(res.ref_low, 4.0)
         self.assertEqual(res.ref_high, 7.0)
         self.assertEqual(res.flag, LabFlag.NORMAL)
+
+    def test_rdw_does_not_match_urine_ph(self):
+        item = {"name": "Độ phân bố kích thước hồng cầu (RDW)", "value": "10.7", "unit": "%", "reference_range": "(11.5.14.5)"}
+        res = LabNormalizer.normalize_item(item)
+        self.assertEqual(res.normalized_code, "RDW")
+        self.assertNotIn("nước tiểu", res.name.lower())
+        self.assertIn("rdw", res.name.lower())
+        self.assertEqual(res.ref_low, 11.5)
+        self.assertEqual(res.ref_high, 14.5)
+        self.assertEqual(res.flag, LabFlag.LOW)
+
+    def test_blood_group_and_rh_qualitative(self):
+        abo_item = {"name": "Nhóm mau", "value": "A", "unit": "", "reference_range": ""}
+        abo_res = LabNormalizer.normalize_item(abo_item)
+        self.assertEqual(abo_res.normalized_code, "BLOOD_GROUP")
+        self.assertEqual(abo_res.value_text, "A")
+        self.assertEqual(abo_res.flag, LabFlag.NORMAL)
+        self.assertEqual(abo_res.quality_status, QualityStatus.ACCEPTED)
+
+        rh_item = {"name": "Rh", "value": "+", "unit": "", "reference_range": ""}
+        rh_res = LabNormalizer.normalize_item(rh_item)
+        self.assertEqual(rh_res.normalized_code, "RH")
+        self.assertEqual(rh_res.value_text, "+")
+        self.assertEqual(rh_res.flag, LabFlag.NORMAL)
+        self.assertEqual(rh_res.quality_status, QualityStatus.ACCEPTED)
+
+    def test_clinical_priority_sorting(self):
+        from worker.jobs import clinical_priority_score
+        rbc = LabNormalizer.normalize_item({"name": "Số lượng hồng cầu (RBC)", "value": "3.92", "unit": "M/uL", "reference_range": "4.2 - 6.3"})
+        hct = LabNormalizer.normalize_item({"name": "Dung tích hồng cầu (HCT)", "value": "35.0", "unit": "%", "reference_range": "37.0 - 51.0"})
+        rdw = LabNormalizer.normalize_item({"name": "RDW", "value": "10.7", "unit": "%", "reference_range": "11.5 - 14.5"})
+        neu = LabNormalizer.normalize_item({"name": "Bạch cầu trung tính (NEU%)", "value": "80.4", "unit": "%", "reference_range": "37.0 - 80.0"})
+
+        # RBC & HCT should be higher priority than RDW, and RDW higher priority than NEU% differential
+        self.assertGreater(clinical_priority_score(rbc), clinical_priority_score(rdw))
+        self.assertGreater(clinical_priority_score(hct), clinical_priority_score(rdw))
+        self.assertGreater(clinical_priority_score(rdw), clinical_priority_score(neu))
 
 
 class TestCacheAndSchemaContracts(unittest.TestCase):

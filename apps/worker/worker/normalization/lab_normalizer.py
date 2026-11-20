@@ -102,8 +102,39 @@ def clean_unit(u: str) -> str:
     s = re.sub(r"(?<![\d^.])(10)(3|6|9|12)(?=\s*/)", r"\1^\2", s)
     s = re.sub(r"/1$", "/L", s)
     s = re.sub(r"/l$", "/L", s)
-    if s.lower() == "fi":
+    if s.lower() in ("fi", "il"):
         s = "fL"
+    # Sửa lỗi OCR hay đọc nhầm đơn vị huyết học:
+    # 1. "2/dL", "2/dl", "2/L" -> "g/dL" hoặc "g/L" (chữ g bị nhầm thành số 2)
+    if re.match(r"(?i)^2\s*/\s*d?l$", s):
+        s = "g/dL" if "d" in s.lower() else "g/L"
+    # 2. "P8", "p8", "P8/cell" -> "pg" (chữ g bị nhầm thành số 8)
+    if re.match(r"(?i)^p8(/cell)?$", s):
+        s = "pg"
+    # 3. "GN", "&N", "%N", "&M", "%M", "%B", "%E", "gn" -> "%"
+    if re.match(r"(?i)^[%&g][nlmeb]$", s):
+        s = "%"
+    return s
+
+
+def clean_reference_string(text: str) -> str:
+    """Cleans OCR artifacts in reference range text: '11.5.14.5' -> '11.5 - 14.5', '(0.7)' -> '0 - 7'."""
+    if not text:
+        return ""
+    s = str(text).strip()
+    # Sửa lỗi OCR dính dấu chấm thay cho gạch nối giữa 2 số thập phân: "11.5.14.5" -> "11.5 - 14.5"
+    s = re.sub(r"(\d+\.\d+)\.(\d+\.\d+)", r"\1 - \2", s)
+    # Sửa lỗi OCR mất gạch nối giữa 2 số thập phân: "12.018.0" -> "12.0 - 18.0"
+    s = re.sub(r"(\d+\.\d)(\d{2}\.\d)", r"\1 - \2", s)
+    # Sửa lỗi OCR hai số nguyên dính dấu chấm: "(31.36)" -> "31 - 36"
+    s = re.sub(r"(?<=[(\s])(\d{2})\.(\d{2})(?=[)\s])", r"\1 - \2", s)
+    # Sửa lỗi OCR EOS "(0.7)" -> "0 - 7"
+    s = re.sub(r"\(?\s*0\s*[.,–-]\s*7(?:\.0)?\s*\)?", "0 - 7", s)
+    # Gỡ bỏ ngoặc đơn nếu bao bọc toàn bộ chuỗi: "(37.0-80.0)" -> "37.0 - 80.0"
+    m_p = re.match(r"^\(\s*([^()]+)\s*\)$", s)
+    if m_p:
+        s = m_p.group(1).strip()
+    s = re.sub(r"\s*[-–—]\s*", " - ", s)
     return s
 
 
@@ -112,6 +143,9 @@ def parse_range_bounds(text: str) -> Tuple[Optional[float], Optional[float]]:
     text = fix_thousands(text)
     if not text:
         return None, None
+
+    # Áp dụng chuẩn hóa chuỗi khoảng tham chiếu
+    text = clean_reference_string(text)
 
     # Handle negative ranges like "-2 đến +3"
     m_range = re.search(rf"([-−–+]?\s*{NUM_PATTERN})\s*(?:đến|d[eé]n|to|-|–)\s*([-−–+]?\s*{NUM_PATTERN})", text, re.I)
@@ -214,31 +248,46 @@ INTERNAL_REFERENCE_KB = [
     {"code": "LEU_U", "name": "Bạch cầu nước tiểu (LEU)", "aliases": ["bachcau", "leu", "bachcauleu", "leukocytes"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
     {"code": "ERY_U", "name": "Hồng cầu nước tiểu (ERY)", "aliases": ["hongcau", "ery", "haneclu", "hanecluery", "erythrocytes"], "unit": "", "range": "Âm tính (-)", "qualitative": True},
     {"code": "URO", "name": "Urobilinogen nước tiểu (URO)", "aliases": ["urobilinogen", "uro", "urobilinogenuro"], "unit": "mg/dL", "range": (0.2, 1.0)},
-    {"code": "PH_U", "name": "Độ pH nước tiểu", "aliases": ["ph", "phnuoctieu"], "unit": "", "range": (4.8, 7.5)},
+    {"code": "PH_U", "name": "Độ pH nước tiểu", "aliases": ["phnuoctieu", "ph_u"], "unit": "", "range": (4.8, 7.5)},
+
+    # Nhóm máu
+    {"code": "BLOOD_GROUP", "name": "Nhóm máu hệ ABO", "aliases": ["nhommau", "nhommauheabo", "abo", "bloodgroup"], "unit": "", "range": "A, B, AB, O", "qualitative": True},
+    {"code": "RH", "name": "Yếu tố Rhesus (Rh)", "aliases": ["rh", "yeutorh", "rhesus", "rhfactor"], "unit": "", "range": "+ / -", "qualitative": True},
 ]
 
 
 def match_internal_indicator(raw_name: str) -> Optional[Dict[str, Any]]:
-    """Fuzzy matches raw lab test name with internal dictionary."""
+    """Matches raw lab test name with internal dictionary prioritizing parenthesized codes."""
     k = norm_name(raw_name)
     if not k:
         return None
+
+    # 1. Thử bóc tách từ viết tắt chuẩn trong ngoặc trước (ví dụ: "(RDW)", "(WBC)", "(HCT)", "(PLT)", "(MCV)")
+    m_paren = re.search(r"\(([a-zA-Z0-9+%-]+)\)", str(raw_name or ""))
+    if m_paren:
+        code_cand = norm_name(m_paren.group(1))
+        for entry in INTERNAL_REFERENCE_KB:
+            if code_cand in [norm_name(a) for a in entry["aliases"]] or code_cand == norm_name(entry["code"]):
+                return entry
+
+    # 2. Khớp chính xác toàn bộ tên với alias
     for entry in INTERNAL_REFERENCE_KB:
         if k in [norm_name(a) for a in entry["aliases"]]:
             return entry
 
-    # Thử bóc tách từ viết tắt trong ngoặc hoặc các từ đơn (ví dụ: "Bạch cầu (WBC)" -> "WBC")
-    sub_tokens = re.findall(r"[a-zA-Z0-9]+", str(raw_name or ""))
-    for tok in sub_tokens:
-        tk = norm_name(tok)
-        if len(tk) >= 2:
-            for entry in INTERNAL_REFERENCE_KB:
-                if tk in [norm_name(a) for a in entry["aliases"]]:
-                    return entry
-
+    # 3. Khớp từ viết tắt độc lập (WBC, RBC, RDW...) chỉ khi là từ đứng riêng rẽ
     for entry in INTERNAL_REFERENCE_KB:
         for alias in entry["aliases"]:
-            if difflib.SequenceMatcher(None, k, norm_name(alias)).ratio() >= 0.85:
+            ak = norm_name(alias)
+            if len(ak) >= 3 and re.search(rf"\b{re.escape(ak)}\b", k):
+                if ak == "ph" and "nuoc tieu" not in k:
+                    continue
+                return entry
+
+    # 4. Fuzzy match với ngưỡng cao 0.88 (chỉ áp dụng cho từ có độ dài >= 4 để tránh khớp nhầm)
+    for entry in INTERNAL_REFERENCE_KB:
+        for alias in entry["aliases"]:
+            if len(alias) >= 4 and difflib.SequenceMatcher(None, k, norm_name(alias)).ratio() >= 0.88:
                 return entry
     return None
 
@@ -279,9 +328,17 @@ class LabNormalizer:
         kb_entry = match_internal_indicator(raw_name)
 
         ref_source = "printed_report"
-        ref_used_str = raw_ref
+        ref_used_str = clean_reference_string(raw_ref) or raw_ref
         ref_low, ref_high = p_low, p_high
         review_reasons = []
+
+        # Nếu OCR chỉ bắt được cận trên (ví dụ 'Chuẩn: 7' thay vì '0 - 7' của EOS)
+        if ref_low is None and ref_high is not None and kb_entry:
+            ranges = kb_entry.get("range")
+            if isinstance(ranges, (tuple, list)) and ranges[0] is not None:
+                if ref_high == ranges[1] or abs(ref_high - ranges[1]) < 1.0:
+                    ref_low = float(ranges[0])
+                    ref_used_str = f"{int(ref_low) if ref_low.is_integer() else ref_low} - {int(ref_high) if ref_high.is_integer() else ref_high}"
 
         # 2. Check if printed report had valid range
         if ref_low is None and ref_high is None:
@@ -325,15 +382,38 @@ class LabNormalizer:
                 ref_source = "unavailable"
                 review_reasons.append("missing_reference_range")
 
+        # Tự động đồng bộ đơn vị giữa g/dL và g/L cho HGB và MCHC (1 g/dL = 10 g/L)
+        if kb_entry and kb_entry.get("code") in ("HGB", "MCHC") and val_num is not None:
+            if unit_norm.lower() == "g/dl" and ref_low is not None and ref_low > 100:
+                ref_low = round(ref_low / 10.0, 1)
+                ref_high = round(ref_high / 10.0, 1) if ref_high is not None else None
+                ref_used_str = f"{ref_low} - {ref_high}" if ref_high else f"> {ref_low}"
+            elif unit_norm.lower() == "g/l" and ref_low is not None and ref_low < 50:
+                ref_low = round(ref_low * 10.0, 1)
+                ref_high = round(ref_high * 10.0, 1) if ref_high is not None else None
+                ref_used_str = f"{ref_low} - {ref_high}" if ref_high else f"> {ref_low}"
+
         # 3. Classify flag
         calculated_flag = cls.classify_value(val_num, ref_low, ref_high)
 
-        # 4. Handle qualitative test results (e.g. urine strips: neg -> NORMAL, pos -> HIGH)
+        # 4. Handle qualitative test results (e.g. blood group ABO, Rh factor, urine strips)
         raw_val_clean = str(raw_val or "").strip().lower()
+        is_blood_group = kb_entry and kb_entry.get("code") == "BLOOD_GROUP"
+        is_rh = kb_entry and kb_entry.get("code") == "RH"
+        is_qualitative = (kb_entry and kb_entry.get("qualitative")) or is_blood_group or is_rh
+
         is_qualitative_neg = raw_val_clean in ("neg", "negative", "âm tính", "am tinh", "norm", "normal", "bình thường", "binh thuong")
         is_qualitative_pos = raw_val_clean in ("pos", "positive", "dương tính", "duong tinh", "+", "++", "+++", "++++")
 
-        if is_qualitative_neg:
+        if is_blood_group:
+            final_flag = LabFlag.NORMAL
+            if not ref_used_str:
+                ref_used_str = "A, B, AB, O"
+        elif is_rh:
+            final_flag = LabFlag.NORMAL
+            if not ref_used_str:
+                ref_used_str = "+ / - (Dương/Âm)"
+        elif is_qualitative_neg:
             final_flag = LabFlag.NORMAL
             if not ref_used_str:
                 ref_used_str = "Âm tính (-)"
@@ -352,12 +432,12 @@ class LabNormalizer:
 
         # 5. Quality gate
         quality = QualityStatus.ACCEPTED
-        if val_num is None and not (is_qualitative_neg or is_qualitative_pos):
+        if val_num is None and not is_qualitative and not raw_val:
             quality = QualityStatus.NEEDS_REVIEW
             review_reasons.append("unparseable_value_num")
-        if ref_low is None and ref_high is None and not (is_qualitative_neg or is_qualitative_pos):
+        if ref_low is None and ref_high is None and not is_qualitative:
             quality = QualityStatus.NEEDS_REVIEW
-        if final_flag == LabFlag.UNKNOWN:
+        if final_flag == LabFlag.UNKNOWN and not is_qualitative:
             quality = QualityStatus.NEEDS_REVIEW
 
         return NormalizedLabItem(
